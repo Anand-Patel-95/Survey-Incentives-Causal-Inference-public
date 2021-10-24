@@ -1,0 +1,290 @@
+---
+title: "W241_Simulation_Final"
+author: "CEM"
+date: "10/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(data.table)                     # for data manipulation 
+library(sandwich)                       # for creating robust SEs 
+library(lmtest)                         # for easy testing with robuse SEs
+library(stargazer)                      # for printing tables 
+library(ggplot2)
+library(tidyverse)
+```
+
+
+```{r}
+# Initialize Group Parameters
+#Group designation: 0=no incentive, 1=fixed payment, 2=lottery ammount
+
+create_data <- function(group_designation, group_size, expected_response_rate){
+  
+  #Create Group Response Split by Potential Treatment Effect
+  
+
+    size1 <- as.integer(group_size[1]*expected_response_rate[1])
+    group1_resp <- c(rep(1, each=size1), rep(0, each=(group_size[1]-size1) ))
+
+    size2 <- as.integer(group_size[2]*expected_response_rate[2])
+    group2_resp <- c(rep(1, each=size2), rep(0, each= (group_size[2]-size2) ))
+
+    size3 <- as.integer(group_size[3]*expected_response_rate[3])
+    group3_resp <- c(rep(1, each=size3), rep(0, each= (group_size[3]-size3) ))
+
+  
+    response <- c(group1_resp,group2_resp, group3_resp)
+  
+  #Create assignment to groups based on size of the groups
+  study_groups <- c(rep(group_designation[1],each=group_size[1]),
+                    rep(group_designation[2],each=group_size[2]),
+                    rep(group_designation[3],each=group_size[3])
+                    )
+  
+  #Create dataframe with potential response and group assignation.
+  d <- data.table(
+      study_groups, response
+      )
+  
+  return(d)
+}
+
+```
+
+```{r}
+
+run_experiment1 <- function(d, n, group, replace){
+
+#Randomly select subjects for groups  
+  
+  df_final <- data.frame(study_groups =integer(),
+                         response = integer()) 
+  j <- 1
+  for (i in group) {
+
+    d_group <- d[d$study_groups==as.integer(i)]
+
+    rs <- sample(1:nrow(d_group), n[j], replace=replace)
+    j <- j + 1
+    d_sample <- d_group[rs,]
+
+    df_final <- rbind(df_final, d_sample)
+  }
+  
+  return(df_final)
+    
+}
+
+```
+
+```{r}
+#CHECK THAT SD IS DEFINED
+run_experiment <- function(d, n, group, replace){
+
+  exp <- run_experiment1(d, n, group, replace)
+  if ((!is.na(sd(exp[exp$study_group == group[1],]$response) != 0)) & 
+      (!is.na(sd(exp[exp$study_group == group[2],]$response) != 0)) &
+      (!is.na(sd(exp[exp$study_group == group[3],]$response) != 0))) {
+      finish <-TRUE}
+  else {
+    exp <- run_experiment1(d,n, group, replace)
+  }
+  return(exp)
+}
+```
+
+
+
+```{r}
+
+experiment_ttest <- function(data, sample_size, group_designation, replace) {
+  
+  experiment1 <- run_experiment(data, sample_size, group_designation, replace)
+  exp2 <- experiment1[experiment1$study_groups==0 | experiment1$study_groups==1]
+  t_test <- t.test(response ~ study_groups, data=exp2)
+  return(t_test$p.value)
+}
+
+```
+
+
+```{r}
+pval_powerc_ttest <- function(d,  n_sample, group_designation, n_sim, replace){
+  return(replicate(n=n_sim, experiment_ttest(d, n_sample, group_designation, replace)))
+}
+```
+
+
+```{r}
+#TEST DATA CREATED USING A LINEAR REGRESSION
+group_designation <- c(0,1,2)
+group_size <- c(1000,1000,1000)
+expected_response_rate <- c(0.05, 0.16, 0.10)
+d <- create_data(group_designation, group_size, expected_response_rate)
+model <- lm(response ~ factor(study_groups), data=d)
+
+mod_rse <- coeftest(model, vcov = vcovHC)
+
+print(mod_rse)
+
+print(mod_rse[2,4])
+
+```
+
+
+```{r}
+#TEST CALCULATION OF P-VALUE LIST
+group_designation <- c(0,1,2)
+group_size <- c(1000,1000,1000)
+expected_response_rate <- c(0.10, 0.20, 0.15)
+d <- create_data(group_designation, group_size, expected_response_rate)
+
+sample_size <- c(300, 300, 300)
+replace <- TRUE
+n_sim_power <- 100
+#experiment_ttest(d, sample_size, group_designation, replace)
+
+# Using the t-test approach
+pval_list <- pval_powerc_ttest(d, sample_size, group_designation, n_sim_power, replace)
+print(pval_list)
+
+p_val_q3 <- mean(pval_list < 0.05)  
+
+#print(p_val_q3)
+print(length(pval_list))
+
+```
+
+
+```{r}
+#MAIN ROUTINE TO RUN SIMULATIONS
+group_designation <- c(0,1,2)
+group_size <- c(1000,1000,1000)
+expected_response_rate <- c(0.05, 0.11, 0.105)
+
+
+
+#ss <- c(50, 100, 150, 160, 175, 200, 250, 255, 300, 310, 325, 350, 400, 450)
+#ss <- c(50, 100)
+ss <- c(50, 75, 80, 98, 100, 121, 125, 154, 155, 248, 250, 303, 305, 380, 390, 1060, 1100)
+
+df_pA <- data.table(sample_size = ss)
+
+n_sim_power <- 1000
+
+deltas <- c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 1, 1.1, 1.2, 1.3)
+#deltas <- c(0, 0.3)
+
+err_list <- c()
+
+num_col <- 1
+for (increase in deltas) {
+  power_list <- c()
+  err <- c()
+  a <- expected_response_rate[1]
+  b <- expected_response_rate[2]*(1+increase)
+  c <- expected_response_rate[3]*(1+increase)
+  err <- c(a,b , c)
+  d <- create_data(group_designation, group_size, err)
+  for (sse in ss){
+    sample_size <- c(sse, sse, sse)
+    pow <- mean(pval_powerc_ttest(d, sample_size, group_designation, n_sim_power, replace)<0.05,na.rm=TRUE)
+    power_list <-c(power_list, pow)
+  }
+  col_name = paste(toString(err[1]), toString(err[2]), sep="-")
+  err_list <- c(err_list, col_name)
+  df_pA[ , paste("Col_", toString(num_col), sep="") := power_list ]
+  num_col <- num_col + 1
+}
+
+#print("Sequence for testing sample size (as % of size of d):")
+#print(ss)
+#print("Power for each sample size:")
+#print(power_list)
+```
+
+```{r}
+print(df_pA)
+```
+
+```{r}
+err_list
+```
+
+
+```{r}
+nam <- names(df_pA)
+
+
+df_pA %>%
+  ggplot() +
+  geom_line(aes(x=sample_size, y=Col_1, color=err_list[1])) +
+  geom_line(aes(x=sample_size, y=Col_2, color=err_list[2])) +
+  geom_line(aes(x=sample_size, y=Col_3, color=err_list[3])) +
+  geom_line(aes(x=sample_size, y=Col_4, color=err_list[4])) +
+  geom_line(aes(x=sample_size, y=Col_5, color=err_list[5])) +
+  geom_line(aes(x=sample_size, y=Col_6, color=err_list[6])) +
+  geom_line(aes(x=sample_size, y=Col_7, color=err_list[7])) +
+  geom_line(aes(x=sample_size, y=Col_8, color=err_list[8])) +
+  labs(title="Graph 2: Sample Size vs. Power", x = "Sample Size (Size for Each Group)", y = "Power") +
+  geom_hline(aes(yintercept=0.8, color="80%"), linetype="dashed", size= 1) +
+  theme_classic()
+
+```
+
+```{r}
+write.csv(df_pA,"project1_power_calc10_1.csv")
+```
+
+
+
+```{r}
+
+#POWER CALCULATION FOR A GIVEN RESPONSE RATE
+group_designation <- c(0,1,2)
+group_size <- c(5000,5000,5000)
+expected_response_rate <- c(0.05, 0.16, 0.10)
+
+#ss <- c(50, 100, 150, 160, 175, 200, 250, 255, 300, 310, 325, 350, 400, 450)
+#ss <- c(50, 100)
+ss <- c(70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150, 155, 160, 165, 170, 175, 180)
+
+df_power_exp <- data.table(sample_size = ss)
+
+n_sim_power <- 1000
+power_list <- c()
+
+d <- create_data(group_designation, group_size, expected_response_rate)
+
+for (sse in ss){
+  sample_size <- c(sse, sse, sse)
+  pow <- mean(pval_powerc_ttest(d, sample_size, group_designation, n_sim_power, replace)<0.05,na.rm=TRUE)
+  power_list <-c(power_list, pow)
+}
+
+col_name = paste(toString(err[1]), toString(err[2]), sep="-")
+df_power_exp[ , "Experiment" := power_list ]
+
+```
+
+```{r}
+print(df_power_exp)
+```
+
+```{r}
+df_power_exp %>%
+  ggplot() +
+  geom_line(aes(x=sample_size, y=Experiment, color="0.05-0.16")) +
+  labs(title="Graph: Sample Size vs. Power", x = "Sample Size (Size for Each Group)", y = "Power") +
+  geom_hline(aes(yintercept=0.8, color="80%"), linetype="dashed", size= 1) +
+  theme_classic()
+```
+
+```{r}
+write.csv(df_power_exp,"Ppower_calc_05_16_3.csv")
+```

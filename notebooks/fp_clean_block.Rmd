@@ -1,0 +1,128 @@
+---
+title: "fp_clean_block"
+author: "CEM"
+date: "10/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(data.table)                     # for data manipulation 
+library(sandwich)                       # for creating robust SEs 
+library(lmtest)                         # for easy testing with robuse SEs
+library(stargazer)                      # for printing tables 
+library(ggplot2)
+library(tidyverse)
+
+library(dplyr)
+library(sqldf)
+
+```
+
+```{r}
+df <- read.csv("original_raw_all_cohorts.csv")
+nrow(df)
+```
+
+
+```{r}
+# Remove duplicate rows of the dataframe
+df_unique <- distinct(df, full_name, .keep_all=TRUE)
+nrow(df_unique)
+#write.csv(df_unique, "unique_emails.csv")
+```
+
+```{r}
+#Convert dataframe to a data.table
+df_unique <- data.table(df_unique)
+head(df_unique)
+```
+
+
+```{r}
+#CREATE LABEL FOR COHORT TO FACILITATE PROCESS
+# 0 - summer_2020
+# 1 - fall_2020
+# 2 - spring_2021
+# 3 - summer_2021
+# 4 - fall_2021
+
+df_unique[ ,cohort := ifelse((summer_2020),0,
+                             ifelse((fall_2020),1,
+                                    ifelse((spring_2021),2,
+                                           ifelse((summer_2021),3,4))))]
+```
+
+
+```{r}
+#Check number of participants per cohort
+df_unique[, .(count = .N), by = cohort]
+```
+
+
+```{r}
+#RANDOM ASSIGNMENT TO GROUPS
+# CONTROL GROUP = 0  (NO MONETARY INCENTIVE)
+# TREATMENT 1 = 1 ($5 FOR ANSWERING)
+# TREATMENT 2 = 2 (ENTER IN A LOTTERY FOR $200)
+
+set.seed(5)
+
+df_final <- data.table()
+n_group = 72
+n_per_treatment = 24
+cohort_group <- c(0, 1, 2, 3, 4)
+treatment <- c(0,1,2)
+
+for (i in cohort_group) {
+
+  d_group <- df_unique[cohort==i,]
+
+  rs <- sample(1:nrow(d_group), n_group, replace=FALSE)
+  d_sample <- d_group[rs,]
+  treatment_group <- c(rep(treatment[1], each=n_per_treatment),
+                       rep(treatment[2], each=n_per_treatment),
+                       rep(treatment[3], each=n_per_treatment))
+  
+  d_sample[ , treatment_group := treatment_group]
+  df_final <- rbind(df_final, d_sample)
+}
+
+
+```
+
+```{r}
+#WRITE DATA TO A CSV FILE
+write.csv(df_final, "treatment_assignment.csv", row.names = FALSE)
+
+```
+
+```{r}
+df_final[, .(count = .N), by = cohort]
+```
+
+
+```{r}
+df_final[, .N, by=.(treatment_group, cohort, in_PST)]
+```
+
+
+```{r}
+df_rest <- df_unique[!(full_name %in% df_final$full_name) , ]
+```
+
+```{r}
+write.csv(df_rest,"remaining_emails.csv", row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
