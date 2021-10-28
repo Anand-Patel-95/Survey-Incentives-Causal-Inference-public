@@ -1,3 +1,10 @@
+# by: Spencer Weston
+## Simple functions that return data directories
+## To ensure they work:
+## 1. Make sure you have opened the .Rproj file
+## 2. Go to Tools -> Global Options -> R Markdown -> Evaluate Chunks in Directory.
+## Set this option to "Project".
+
 library(here)
 
 data_folder <- function(){
