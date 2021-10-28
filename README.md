@@ -9,7 +9,7 @@ The assignment prompt is in `./assignment.Rmd` and the linked `./assignment.html
     ├── LICENSE
     ├── README.md          <- The top-level README describing the project aims
     ├── data
-    │   ├── external       <- Data from third party sources.
+    │   ├── external       <- Data from third party sources (emails from slack, Google form responses).
     │   ├── interim        <- Intermediate data that has been transformed.
     │   └── processed      <- The final, canonical data sets for modeling.
     |
