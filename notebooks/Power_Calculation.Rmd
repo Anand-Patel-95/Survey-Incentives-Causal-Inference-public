@@ -1,6 +1,6 @@
 ---
 title: "W241_Simulation_Final"
-author: "CEM"
+author: "Carlos Moreno"
 date: "10/24/2021"
 output: html_document
 ---
@@ -16,6 +16,7 @@ library(lmtest)                         # for easy testing with robuse SEs
 library(stargazer)                      # for printing tables 
 library(ggplot2)
 library(tidyverse)
+source('./src/data_pathes.R')
 ```
 
 
@@ -238,7 +239,8 @@ df_pA %>%
 ```
 
 ```{r}
-write.csv(df_pA,"project1_power_calc10_1.csv")
+path <- file.path(processed_data_folder(), "power_calc10_1")
+write.csv(df_pA, path)
 ```
 
 
@@ -286,5 +288,6 @@ df_power_exp %>%
 ```
 
 ```{r}
-write.csv(df_power_exp,"Ppower_calc_05_16_3.csv")
+path <- file.path(processed_data_folder(), "Ppower_calc_05_16_3.csv")
+write.csv(df_power_exp, path)
 ```
