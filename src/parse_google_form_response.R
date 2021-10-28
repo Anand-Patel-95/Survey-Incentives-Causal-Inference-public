@@ -55,15 +55,46 @@ create_useful_classes_table <- function(n){
 }
 
 # Return, in list form, the recorded email (which will be used to rejoin the useful
-# class tables) and the useful classes for a row
-parse_useful_classes_column <- function(x, y){
-  list(email=x, useful_courses= y)
+# class tables) and the useful classes 
+parse_useful_classes <- function(email, useful_course_response){
+  list(recorded_email=email, useful_courses= useful_course_response)
 }
 
-assign_values_to_useful_classes <- function(useful_class_str, n){
+match_class_pattern <- function(class_str, reference_classes){
+  split_str_list <- str_split(class_str, ',')
+  split_str_vect <- split_str_list[[1]]
+  result_vect <- rep(0, length(reference_classes))
+  for (word in split_str_vect){
+    for (i in 1:length(reference_classes)){
+      print(reference_classes[i])
+      print(word)
+      match <- grepl(reference_classes[i], word, ignore.case=TRUE)
+      print(match)
+      print(paste(result_vect[i], i))
+      if (match){
+        result_vect[i] <- match
+      }
+    }
+  }
+  return(result_vect)
+}
+
+assign_values_to_useful_classes <- function(useful_class_dt, response_dt){
   class_vect <- c("w200", "w201", "w203", "w205", "w207", "w209", "w210",
-                  "w231", "w241", "w251", "w261", "w266", "w277", )
+                  "w231", "w241", "w251", "w261", "w266", "w277", "recorded_email")
   l <- vector("list", length(class_vect))
   names(l) <- class_vect
+  useful_class_list <- parse_useful_classes(response_dt[, recorded_email], response_dt[, useful_courses])
+  
+  for (i in 1:response_dt[, .N]){
+    email <- useful_class_list[["recorded_email"]][i]
+    class_string <- useful_class_list[['useful_courses']][i]
+    class_match <- match_class_pattern(class_string, class_vect[1:length(class_vect)-1])
+    row <- c(class_match, email)
+    row_list <- as.list(row)
+    names(row_list) <- names(useful_class_dt)
+    set(useful_class_dt, i, names(useful_class_dt), as.list(row))
+  }
+  return(useful_class_dt)
 }
 
