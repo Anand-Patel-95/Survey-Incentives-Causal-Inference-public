@@ -1,12 +1,28 @@
+library(here)
 
 data_folder <- function(){
-  
+  project_directory <- here()
+  path = file.path(project_directory, "data")
+  if (!dir.exists(path)){
+    stop("Data folder not found")
+  }
+  return(path)
 }
 
 external_data_folder <- function(){
-  
+  data_directory <- data_folder()
+  path = file.path(data_directory, "external")
+  if (!dir.exists(path)){
+    stop("External data folder not found")
+  }
+  return(path)
 }
 
 processed_data_folder <- function(){
-  
+  data_directory <- data_folder()
+  path = file.path(data_directory, "processed")
+  if (!dir.exists(path)){
+    stop("Processed data folder not found")
+  }
+  return(path)
 }
