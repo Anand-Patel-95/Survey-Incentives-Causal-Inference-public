@@ -24,7 +24,8 @@ source('./src/data_pathes.R')
 ```
 
 ```{r}
-df <- read.csv("original_raw_all_cohorts.csv")
+raw_cohort_data_path <- file.path(external_data_folder(), "original_raw_all_cohorts.csv")
+df <- read.csv(raw_cohort_data_path)
 nrow(df)
 ```
 
@@ -97,7 +98,8 @@ for (i in cohort_group) {
 
 ```{r}
 #WRITE DATA TO A CSV FILE
-write.csv(df_final, "treatment_assignment.csv", row.names = FALSE)
+treatment_assignment_path <- file.path(interim_data_folder(), "treatment_assignment.csv")
+write.csv(df_final, treatment_assignment_path, row.names = FALSE)
 
 ```
 
@@ -116,7 +118,8 @@ df_rest <- df_unique[!(full_name %in% df_final$full_name) , ]
 ```
 
 ```{r}
-write.csv(df_rest,"remaining_emails.csv", row.names = FALSE)
+remaining_emails_path <- file.path(interim_data_folder(), "remaining_emails.csv")
+write.csv(df_rest, remaining_emails_path, row.names = FALSE)
 ```
 
 

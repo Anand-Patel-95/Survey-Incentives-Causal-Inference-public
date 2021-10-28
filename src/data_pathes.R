@@ -26,3 +26,12 @@ processed_data_folder <- function(){
   }
   return(path)
 }
+
+interim_data_folder <- function(){
+  data_directory <- data_folder()
+  path = file.path(data_directory, "interim")
+  if (!dir.exists(path)){
+    stop("Interim data folder not found")
+  }
+  return(path)
+}
