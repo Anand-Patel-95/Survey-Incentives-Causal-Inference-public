@@ -1,6 +1,6 @@
 ---
-title: "fp_clean_block"
-author: "CEM"
+title: "clean_block"
+author: "Carlos Moreno"
 date: "10/23/2021"
 output: html_document
 ---
@@ -20,6 +20,7 @@ library(tidyverse)
 library(dplyr)
 library(sqldf)
 
+source('./src/data_pathes.R')
 ```
 
 ```{r}
@@ -67,7 +68,7 @@ df_unique[, .(count = .N), by = cohort]
 #RANDOM ASSIGNMENT TO GROUPS
 # CONTROL GROUP = 0  (NO MONETARY INCENTIVE)
 # TREATMENT 1 = 1 ($5 FOR ANSWERING)
-# TREATMENT 2 = 2 (ENTER IN A LOTTERY FOR $200)
+# TREATMENT 2 = 2 (ENTER IN A LOTTERY FOR $100)
 
 set.seed(5)
 
