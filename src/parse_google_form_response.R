@@ -4,6 +4,8 @@
 # column, are transformed into binary columns indicating 'usefulness' by class.
 
 source("./src/data_pathes.R")
+library(data.table)
+library(stringr)
 
 # Create an empty "useful classes" table to put the response for "useful" class
 # into it's own column by class
