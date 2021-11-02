@@ -1,0 +1,46 @@
+---
+title: "Pilot Data"
+author: Spencer Weston, Carlos Moreno, Anand Patel, Alexandra Drossos, and Madeline
+  Whitlow
+date: "11/2/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r cars, echo=FALSE, include=FALSE}
+library(data.table)
+library(ggplot2)
+source('./src/data_pathes.R')
+interim_folder <- interim_data_folder()
+data_path <- file.path(interim_folder, 'simple_assignment_response_match.csv')
+d <- fread(data_path)
+```
+
+## Pilot Data
+
+We have received 36 responses as of 11/1/2021. We began collecting data on 10/31/2021
+and will accept responses up until 11/14/2021. Of these 36 responses, 10 could not 
+be trivially attributed to a subject due to a difference between the email we assigned
+to treatment and the email we received a response from. We expect that we will be 
+able to match these responses to their treatment group in time.
+
+For now, we present a histogram of responses by treatment group for the matched subjects. Our control group
+provides no monetary reward for completing the survey. We have two treatment groups.
+The first offers a guaranteed $5 Amazon gift card for completing the survey. The second offers entry
+into a lottery for a $100 Amazon gift card.
+
+```{r, echo=FALSE}
+hist_data <- d[, .N, by=treatment_group]
+hist_data[, group := ifelse(treatment_group==0, 'control', ifelse(treatment_group == 1, '$5 guaranteed', "$100 lottery"))] 
+ggplot(data=hist_data, aes(x=group, y=N)) + geom_col() +
+  ggtitle("Number of Responses by Treatment Group", subtitle= "N=26") +
+  xlab("Treatment Group") + ylab("Number of Responses")
+
+```
+
