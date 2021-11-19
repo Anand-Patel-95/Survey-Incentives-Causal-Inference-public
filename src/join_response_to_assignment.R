@@ -7,8 +7,9 @@ library(dplyr)
 # ------------------------------------------------------------------------------
 ## Initial data work
 interim_folder <- interim_data_folder()
+external_folder <- external_data_folder()
 
-responses <- file.path(interim_folder, "pilot_processed_survey_results.csv")
+responses <- file.path(interim_folder, "processed_survey_results.csv")
 assignment <- file.path(interim_folder, "treatment_assignment.csv") 
 
 responses <- fread(responses)
@@ -258,5 +259,5 @@ assignment_response <- left_join(assignment, responses,
                                  by=c('join_email' = 'join_email')) %>%
   as.data.table()
 
-csv_path <- file.path(interim_folder, 'preliminary_assignment_response_match.csv')
+csv_path <- file.path(interim_folder, 'assignment_response_match.csv')
 write.csv(assignment_response[!is.na(submit_time), ], csv_path)

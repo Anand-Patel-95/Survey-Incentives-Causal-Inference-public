@@ -64,7 +64,7 @@ assign_values_to_useful_classes <- function(useful_class_dt, response_dt){
 
 external_folder <- external_data_folder()
 # Change to official response .csv when ready
-response_path <- file.path(external_folder, "MIDS_Courses_Time_requirements_Survey_(Responses)_11_1_2021.csv")
+response_path <- file.path(external_folder, "MIDS_Courses_Time_Requirements_Survey_(Responses).csv")
 
 d <- fread(response_path)
 
@@ -108,6 +108,6 @@ setkey(d, recorded_email)
 setkey(useful_class_dt, recorded_email)
 left_join_tbl <- d[useful_class_dt]
 folder <- interim_data_folder()
-path <- file.path(folder, "pilot_processed_survey_results.csv")
+path <- file.path(folder, "processed_survey_results.csv")
 write.csv(left_join_tbl, path, row.names = FALSE)
 
