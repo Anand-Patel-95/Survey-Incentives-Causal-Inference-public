@@ -26,6 +26,10 @@ experimenter_emails <- c('alexandradrossos@berkeley.edu',
                          'madeline_94@berkeley.edu')
 responses <- responses[!(recorded_email %in% experimenter_emails), ]
 
+# Drop Invalid response that came in past the due date
+invalid_emails <- c('jcweaver@berkeley.edu')
+responses <- responses[!(recorded_email %in% invalid_emails), ]
+
 # Assign `join_email` column
 responses[ , join_email := recorded_email]
 
