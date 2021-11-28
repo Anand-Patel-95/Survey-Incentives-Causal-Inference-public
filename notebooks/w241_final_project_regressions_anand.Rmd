@@ -268,29 +268,9 @@ stargazer(
 ```
 
 
-```{r message=FALSE, warning=FALSE}
+## DONT ADD BELOW TABLES
 
-# Changing the default to No Incentive
-
-lrt1 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive'))]
-names(lrt1$coefficients) = c("5 Dollar Incentive", "100 Dollar Lottery Incentive", "No Incentive")
-lrt2 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive') + factor(cohort))]
-names(lrt2$coefficients) = c("5 Dollar Incentive", "100 Dollar Lottery Incentive", "No Incentive", "Cohort1", "Cohort2", "Cohort3", "Cohort4")
-lrt3 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive') + in_PST + factor(cohort))]
-names(lrt3$coefficients) <- c("5 Dollar Incentive", "100 Dollar Lottery Incentive", "No Incentive","in_PST", 'Cohort1', 'Cohort2', 'Cohort3', 'Cohort4')
-
-stargazer(
-  lrt1, lrt2, lrt3,
-  title = "Table 3: Linear Regression - Including All Treatments",
-  column.labels = c('Simple', 'Cohort Included', 'Cohort and PST'),
-  type = 'text',
-  se = list(robust_SE(lrt1), robust_SE(lrt2), robust_SE(lrt3)),
-  omit = c('Cohort1', 'Cohort2', 'Cohort3', 'Cohort4'),
-  notes = 'Note: Uses Robust Standard Error, Cohort included but ommitted in Model 2 and 3.'
-)
-```
-
-> Warning: POWER might be too low fpr HTE analysis b/c few samples. Maybe leave off.
+> WARNING: POWER might be too low fpr HTE analysis b/c few samples. Maybe leave off.
 
 ```{r warning=FALSE}
 # Heterogeneous Treatment Effects: in_PST 
