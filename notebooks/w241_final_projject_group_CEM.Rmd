@@ -260,6 +260,7 @@ fig_pc_02 <- df_power_exp2 %>%
 ```
 
 
+
 ```{r, echo=FALSE}
 #Function to calculate the Robust SE
 robust_SE <- function(model){
@@ -466,7 +467,7 @@ tab_in_PST
 ```
 
 
-> `No Incentive (Control)` and `$100 Lottery` treatment share the same number of observations who are in_PST, so no covariate balance check is needed. However, `No Incentive (Control)` and `$5 Incentive` treatment differ in the number of observations who are in_PST, so a covariate balance check is needed.
+`No Incentive (Control)` and `$100 Lottery` treatment share the same number of observations who are `in_PST`, so no covariate balance check is needed. However, `No Incentive (Control)` and `$5 Incentive` treatment differ in the number of observations who are `in_PST`, so a covariate balance check is needed.
 
 ```{r warning=FALSE, echo=FALSE, include=FALSE}
 lr_PST_covBal <- df1[treatment_group %in% c(0, 1), lm(in_PST ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)'))]
@@ -488,7 +489,7 @@ screenshot <- webshot("models0.htm", "models0.png", cliprect = "viewport")
 knitr::include_graphics("models0.png")
 ```
 
-> Randomization was successful because the covariate balance check reveals that the proportion of observations `in_PST` does not differ statistically significantly between control and the `$5 Incentive` treatment.
+Randomization was successful because the covariate balance check reveals that the proportion of observations `in_PST` does not differ statistically significantly between `No Incentive (Control)` and the `$5 Incentive` treatment.
 
 ### Regression Tables
 
