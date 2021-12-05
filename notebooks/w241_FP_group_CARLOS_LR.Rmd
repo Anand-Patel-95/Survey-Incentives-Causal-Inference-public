@@ -343,7 +343,7 @@ tab_cohort_treatment <- kable(
 tab_cohort_treatment
 ```
 
-
+Table __ gives the response rate by 
 
 
 ```{r, echo=FALSE}
@@ -361,7 +361,7 @@ tab_in_PST <- kable(
 #    footnote_as_chunk = TRUE)
 ```
 
-The following table presents the response rate across treatment groups and In_PST.  While the treatment groups seems to have similar participants from the Pacific Time (In PST = 1), the range of the response rates goes between `r min(table01[ , "Response Rate"])`% and `r max(table01[ , "Response Rate"])`%.  As there is a relatively wide range of response rates, it is important to explore the impact of In_PST in the linear models as a covariate.
+The following table presents the response rate across treatment groups and `In_PST`.  While the treatment groups seems to have similar participants from the Pacific Time (In PST = 1), the range of the response rates goes between `r min(table01[ , "Response Rate"])`% and `r max(table01[ , "Response Rate"])`%.  As there is a relatively wide range of response rates, it is important to explore the impact of In_PST in the linear models as a covariate.
 
 ```{r, echo=FALSE}
 tab_in_PST %>%
@@ -418,8 +418,8 @@ stargazer(
   notes = "Note: Uses Robust Standard Errors.",
   dep.var.labels = c("Response Rate"),
   add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
-                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", 
-                     "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+                   c("Baseline is:", "No Incentive (Control)", "No Incentive (Control)", 
+                     "No Incentive (Control)", "No Incentive (Control)")),
   covariate.labels = c("5 Dollar Incentive", "Fall 2020", 
                        "Fall 2021", "Spring 2021", 
                        "Summer 2021", 
@@ -430,9 +430,36 @@ stargazer(
 screenshot <- webshot("models1.htm", "models1.png", cliprect = "viewport")
 ```
 
+
+```{r message=FALSE, warning=FALSE}
+stargazer(
+  lr1, lr2, lr3, lr4,
+  type = 'text',
+  title = "Table 1: Linear Regression - No Incentive vs. $5 Per Survey Incentive",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST included'),
+  se = list(robust_SE(lr1), robust_SE(lr2), robust_SE(lr3), robust_SE(lr4)),
+  header=F,
+  notes = "Note: Uses Robust Standard Errors.",
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "No Incentive (Control)", "No Incentive (Control)", 
+                     "No Incentive (Control)", "No Incentive (Control)")),
+  covariate.labels = c("5 Dollar Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline")
+  
+  )
+```
+
+
 ```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
 knitr::include_graphics("models1.png")
 ```
+
+
+
+
 
 #### Between No Incentive vs $100 Lottery
 
@@ -454,8 +481,8 @@ stargazer(
   notes = 'Note: Uses Robust Standard Error.',
   dep.var.labels = c("Response Rate"),
   add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
-                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", 
-                     "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+                   c("Baseline is:", "No Incentive (Control)", "No Incentive (Control)", 
+                     "No Incentive (Control)", "No Incentive (Control)")),
   covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
                        "Fall 2021", "Spring 2021", 
                        "Summer 2021", 
@@ -464,6 +491,28 @@ stargazer(
 
 screenshot <- webshot("models2.htm", "models2.png", cliprect = "viewport")
 ```
+
+
+```{r warning=FALSE}
+stargazer(
+  lr02, lr02_a, lr02_b, lr02_c,
+  title = "Table 2: Linear Regression - No Incentive vs. $100 Lottery Win",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lr02), robust_SE(lr02_a), robust_SE(lr02_b), robust_SE(lr02_c)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "No Incentive (Control)", "No Incentive (Control)", 
+                     "No Incentive (Control)", "No Incentive (Control)")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline")
+  )
+```
+
+
 
 ```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
 knitr::include_graphics("models2.png")
@@ -490,8 +539,8 @@ stargazer(
   notes = 'Note: Uses Robust Standard Error.',
   dep.var.labels = c("Response Rate"),
   add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
-                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", 
-                     "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+                   c("Baseline is:", "5 dollar Incentive", "5 dollar Incentive", 
+                     "5 dollar Incentive", "5 dollar Incentive")),
   covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
                        "Fall 2021", "Spring 2021", 
                        "Summer 2021", 
@@ -500,6 +549,28 @@ stargazer(
 
 screenshot <- webshot("models3.htm", "models3.png", cliprect = "viewport")
 ```
+
+
+```{r warning=FALSE}
+stargazer(
+  lr12, lr12_a, lr12_b, lr12_c,
+  title = "Table 3: Linear Regression - $5 Per Survey Incentive vs. $100 Lottery Win",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lr12), robust_SE(lr12_a), robust_SE(lr12_b), robust_SE(lr12_c)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar Incentive", "5 dollar Incentive", 
+                     "5 dollar Incentive", "5 dollar Incentive")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline")
+  )
+```
+
+
 
 ```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
 knitr::include_graphics("models3.png")
@@ -532,7 +603,8 @@ stargazer(
   dep.var.labels = c("Response Rate"),
   add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), 
                    c("PST fixed effects", "No", "No", "Yes", "Yes"),
-                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+                   c("Baseline is:", "5 dollar Incentive", "5 dollar Incentive", 
+                     "5 dollar Incentive", "5 dollar Incentive")),
   covariate.labels = c("100 Dollar Lottery Incentive", "No Incentive", "Fall 2020", 
                        "Fall 2021", "Spring 2021", 
                        "Summer 2021", 
@@ -542,6 +614,29 @@ stargazer(
 screenshot <- webshot("models4.htm", "models4.png", cliprect = "viewport")
 
 ```
+
+
+```{r warning=FALSE}
+stargazer(
+  lrt1, lrt2, lrt3, lrt4,
+  title = "Table 4: Linear Regression - Including All Treatments",
+  column.labels = c('Simple', 'Cohort Included', 'PST Included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lrt1), robust_SE(lrt2), robust_SE(lrt3), robust_SE(lrt4)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), 
+                   c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar Incentive", "5 dollar Incentive", 
+                     "5 dollar Incentive", "5 dollar Incentive")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "No Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline")
+  )
+```
+
+
 
 ```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
 knitr::include_graphics("models4.png")
@@ -553,5 +648,39 @@ knitr::include_graphics("models4.png")
 
 
 
+```{r warning=FALSE}
+# Heterogeneous Treatment Effects: in_PST 
 
+
+lr_notPST <- df1[ in_PST %in% c(0), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+
+lr_PST <- df1[ in_PST %in% c(1), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+
+lr_notPST_cohort <- df1[ in_PST %in% c(0), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+lr_PST_cohort <- df1[ in_PST %in% c(1), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+stargazer(
+  lr_notPST, lr_PST, lr_notPST_cohort, lr_PST_cohort,
+  title = "Table 5: Linear Regression - Heterogeneous Treatment Effects for being in PST",
+  column.labels = c('Not PST', 'PST', 'Not PST, Cohorts', 'PST, Cohorts'),
+  type = 'text',
+  se = list(robust_SE(lr_notPST), robust_SE(lr_PST), robust_SE(lr_notPST_cohort), robust_SE(lr_PST_cohort)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "No", "Yes", "Yes"), 
+                   c("Baseline is:", "5 dollar Incentive", "5 dollar Incentive", "5 dollar Incentive", "5 dollar Incentive")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "No Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", "Baseline"),
+  out='models5.htm'
+)
+
+```
+
+```{r}
+screenshot <- webshot("models5.htm", "models5.png", cliprect = "viewport")
+knitr::include_graphics("models5.png")
+
+```
 
