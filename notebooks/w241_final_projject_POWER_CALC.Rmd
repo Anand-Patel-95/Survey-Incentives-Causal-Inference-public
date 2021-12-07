@@ -172,6 +172,9 @@ group_size <- c(5000,5000,5000)
 replace <- TRUE
 n_sim_power <- 1000
 
+```
+
+```{r}
 #POWER CALCULATION PRE-IMPLEMENTATION OF EXPERIMENT
 ss <- c(10, 20, 40, 80, 90, 100, 110, 115, 120, 125)
 expected_response_rate <- c(0.05, 0.16, 0.1)
@@ -186,6 +189,12 @@ df_power_exp1 <- power_table(group_designation, group_size, expected_response_ra
 expected_response_rate <- c(0.0916, 0.2083, 0.1333)
 ss <- c(10, 50, 100, 110, 120, 130, 135, 140, 145, 150)
 df_power_exp2 <- power_table(group_designation, group_size, expected_response_rate, replace, ss, n_sim_power)
+
+#POWER CALCULATION FOR NO INCENTIVE VS. $100 LOTTERY.
+expected_response_rate <- c(0.1333, 0.0916, 0.2083)
+ss <- c(10, 120, 200, 300, 390, 395, 400, 500, 600, 700, 800, 900, 1000)
+df_power_exp3 <- power_table(group_designation, group_size, expected_response_rate, replace, ss, n_sim_power)
+
 ```
 
 
@@ -194,4 +203,5 @@ df_power_exp2 <- power_table(group_designation, group_size, expected_response_ra
 write.csv(df_power_exp_0,"power_pre_expe.csv", row.names = FALSE)
 write.csv(df_power_exp1,"power_expe1.csv", row.names = FALSE)
 write.csv(df_power_exp2,"power_expe2.csv", row.names = FALSE)
+write.csv(df_power_exp3,"power_expe3.csv", row.names = FALSE)
 ```
