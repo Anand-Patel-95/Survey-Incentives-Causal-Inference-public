@@ -1,0 +1,654 @@
+---
+title: "W241_Simulation_Final"
+author: "Alexandra Drossos, Anand Patel, Carlos Moreno, Madeline Whitlow, Spencer Weston"
+date: "December, 2021"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, results='hide', message=FALSE, warning=FALSE, echo=FALSE}
+
+library(data.table)                     # for data manipulation 
+library(sandwich)                       # for creating robust SEs 
+library(lmtest)                         # for easy testing with robuse SEs
+library(stargazer)                      # for printing tables 
+library(ggplot2)
+library(tidyverse)
+
+library(kableExtra)
+library(plyr)
+
+# Used to convert sjPlot html table to image for pdf printing purposes
+library(webshot)
+library(magick)
+
+```
+
+```{r, echo=FALSE}
+# Initialize Group Parameters
+#Group designation: 0=no incentive, 1=fixed payment, 2=lottery ammount
+
+create_data <- function(group_designation, group_size, expected_response_rate){
+  
+  #Create Group Response Split by Potential Treatment Effect
+  
+
+    size1 <- as.integer(group_size[1]*expected_response_rate[1])
+    group1_resp <- c(rep(1, each=size1), rep(0, each=(group_size[1]-size1) ))
+
+    size2 <- as.integer(group_size[2]*expected_response_rate[2])
+    group2_resp <- c(rep(1, each=size2), rep(0, each= (group_size[2]-size2) ))
+
+    size3 <- as.integer(group_size[3]*expected_response_rate[3])
+    group3_resp <- c(rep(1, each=size3), rep(0, each= (group_size[3]-size3) ))
+
+  
+    response <- c(group1_resp,group2_resp, group3_resp)
+  
+  #Create assignment to groups based on size of the groups
+  study_groups <- c(rep(group_designation[1],each=group_size[1]),
+                    rep(group_designation[2],each=group_size[2]),
+                    rep(group_designation[3],each=group_size[3])
+                    )
+  
+  #Create dataframe with potential response and group assignation.
+  d <- data.table(
+      study_groups, response
+      )
+  
+  return(d)
+}
+
+```
+
+```{r, echo=FALSE}
+
+run_experiment1 <- function(d, n, group, replace){
+
+#Randomly select subjects for groups  
+  
+  df_final <- data.frame(study_groups =integer(),
+                         response = integer()) 
+  j <- 1
+  for (i in group) {
+
+    d_group <- d[d$study_groups==as.integer(i)]
+    
+    size = nrow(d_group)
+    num = n[j]
+    
+    rs <- sample(1:size, num, replace=replace)
+    j <- j + 1
+    d_sample <- d_group[rs,]
+
+    df_final <- rbind(df_final, d_sample)
+  }
+  
+  return(df_final)
+    
+}
+
+```
+
+```{r, echo=FALSE}
+#CHECK THAT SD IS DEFINED
+run_experiment <- function(d, n, group, replace){
+  
+  #print(n)
+  #print(group)
+  #print(replace)
+
+  exp <- run_experiment1(d, n, group, replace)
+  if ((!is.na(sd(exp[exp$study_group == group[1],]$response) != 0)) & 
+      (!is.na(sd(exp[exp$study_group == group[2],]$response) != 0)) &
+      (!is.na(sd(exp[exp$study_group == group[3],]$response) != 0))) {
+      finish <-TRUE}
+  else {
+    exp <- run_experiment1(d,n, group, replace)
+  }
+  return(exp)
+}
+```
+
+```{r, echo=FALSE}
+
+experiment_ttest <- function(data, sample_size, group_designation, replace) {
+  
+  #print(sample_size)
+  #print(group_designation)
+  #print(replace)
+  
+  experiment1 <- run_experiment(data, sample_size, group_designation, replace)
+  exp2 <- experiment1[experiment1$study_groups==0 | experiment1$study_groups==1]
+  t_test <- t.test(response ~ study_groups, data=exp2)
+  return(t_test$p.value)
+}
+
+```
+
+```{r, echo=FALSE}
+pval_powerc_ttest <- function(d,  n_sample, group_designation, n_sim, replace){
+  #print(n_sample)
+  #print(group_designation)
+  #print(replace)
+  return(replicate(n=n_sim, experiment_ttest(d, n_sample, group_designation, replace)))
+}
+```
+
+
+```{r, echo=FALSE}
+#POWER CALCULATION FOR A GIVEN RESPONSE RATE
+group_designation <- c(0,1,2)
+group_size <- c(5000,5000,5000)
+expected_response_rate <- c(0.1333, 0.2083, 0.0916)
+replace <- TRUE
+
+ss <- c(10, 50, 100, 110, 120, 200, 300, 390, 395, 400)
+
+df_power_exp1 <- data.table(sample_size = ss)
+
+n_sim_power <- 1000
+power_list <- c()
+
+d <- create_data(group_designation, group_size, expected_response_rate)
+
+for (sse in ss){
+  sample_size <- c(sse, sse, sse)
+  pow <- mean(pval_powerc_ttest(d, sample_size, group_designation, n_sim_power, replace)<0.05,na.rm=TRUE)
+  power_list <-c(power_list, pow)
+}
+
+df_power_exp1[ , "Power" := power_list * 100]
+
+```
+
+```{r, echo=FALSE}
+#TABLE: SAMPLE POWER CALCULATION TABLE FOR No Incentive vs. $5 Incentive.
+tab01 <- kable(
+  data.frame(df_power_exp1),
+  col.names = c("Sample", "Power (%)"),
+  align = c("c", "c"),
+  digits = c(0,2),
+  caption = "Power Calculation:") %>%
+  footnote(
+    general = "No Incentive vs. $5 Incentive.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE)
+```
+
+```{r, echo=FALSE, fig.height=6, fig.align="center"}
+#FIGURE: POWER CURVE FOR No Incentive vs. $5 Incentive
+fig_pc_01 <- df_power_exp1 %>%
+  ggplot() +
+  geom_line(aes(x=sample_size, y=Power, color="13.33% vs 20.83%")) +
+  labs(title="Graph 1: Sample Size vs. Power - No Incentive vs. $5 Incentive",
+       subtitle = "With a Group Size of 120, Experiment's Power is around 34%",
+       x = "Sample Size (Size for Each Group)", 
+       y = "Power") +
+  geom_hline(aes(yintercept=80, color="80%"), linetype="dashed", size= 1) +
+  geom_vline(aes(xintercept=120, color="120 current Sample"), linetype="dashed", size= 1) +
+  theme_minimal() +
+  theme(legend.position = "bottom", text = element_text(size = 8))
+```
+
+
+```{r, echo=FALSE}
+#SECOND SCENARIO (5 DOLLAR VS. 100 LOTTERY)
+#POWER CALCULATION FOR A GIVEN RESPONSE RATE
+group_designation <- c(0,1,2)
+group_size <- c(5000,5000,5000)
+expected_response_rate <- c(0.0916, 0.2083, 0.1333)
+replace <- TRUE
+
+
+ss <- c(10, 50, 100, 110, 120, 130, 135, 140, 145, 150)
+
+df_power_exp2 <- data.table(sample_size = ss)
+
+n_sim_power <- 1000
+power_list <- c()
+
+d <- create_data(group_designation, group_size, expected_response_rate)
+
+for (sse in ss){
+  sample_size <- c(sse, sse, sse)
+  pow <- mean(pval_powerc_ttest(d, sample_size, group_designation, n_sim_power, replace)<0.05,na.rm=TRUE)
+  power_list <-c(power_list, pow)
+}
+
+df_power_exp2[ , "Power" := power_list * 100 ]
+
+```
+
+
+```{r, echo=FALSE}
+#TABLE: SAMPLE POWER CALCULATION TABLE FOR $5 Incentive vs. $100 Lottery
+tab02 <- kable(
+  data.frame(df_power_exp2),
+  col.names = c("Sample", "Power (%)"),
+  align = c("c", "c"),
+  digits = c(0,2),
+  caption = "Power Calculation:") %>%
+  footnote(
+    general = "$5 Incentive vs. $100 Lottery.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE)
+```
+
+```{r, echo=FALSE}
+#FIGURE: POWER CURVE FOR $5 Incentive vs. $100 Lottery
+fig_pc_02 <- df_power_exp2 %>%
+  ggplot() +
+  geom_line(aes(x=sample_size, y=Power, color="9.16% va. -20.83%")) +
+  labs(title="Graph 2: Sample Size vs. Power. $5 Incentive vs. $100 Lottery.",
+       subtitle ="With a Group Size of 120, Experiment's Power is around 72%",
+       x = "Sample Size (Size for Each Group)", 
+       y = "Power") +
+  geom_hline(aes(yintercept=80, color="80%"), linetype="dashed", size= 1) +
+  geom_vline(aes(xintercept=120, color="120 current Sample"), linetype="dashed", size= 1) +
+  theme_minimal() +
+  theme(legend.position = "bottom", text = element_text(size = 8))
+
+```
+
+
+
+```{r, echo=FALSE}
+#Function to calculate the Robust SE
+robust_SE <- function(model){
+  return(sqrt(diag(vcovHC(model))) )
+}
+```
+
+```{r, echo=FALSE}
+#USE THIS IF CONSOLIDATED FILE ALREADY EXISTS
+df1 <- read.csv("consolidated_response_rate.csv")
+df1 <- data.table(df1)
+```
+
+
+### Renaming Variables and Values
+
+```{r, echo=FALSE}
+df1[ , treatment_group_name := ifelse(treatment_group == 0, "No Incentive (Control)", 
+                                      ifelse(treatment_group == 1, "$5 Incentive", "$100 Lottery"))]
+
+df1[ , cohort_name := mapvalues(df1$cohort, 
+                                from = c(0, 1, 2, 3, 4), 
+                                to = c("Summer 2020", "Fall 2020", "Spring 2021", "Summer 2021", "Fall 2021"))]
+
+df1[ , semesters_enrolled := mapvalues(df1$cohort, 
+                                from = c(0, 1, 2, 3, 4), 
+                                to = c(5, 4, 3, 2, 1))]
+```
+
+
+
+```{r, echo=FALSE}
+table1 = df1[ ,.(count_group = .N, response = sum(response)), by = .(treatment_group_name)]
+table1[ , response_rate := (response/count_group)*100]
+tab3 <- kable(
+  data.frame(table1),
+  col.names = c("Treatment", "Group Size", "Response (N)", "Response (%)"),
+  align = c("l", "c", "c", "c"),
+  digits = c(2,2,2),
+  caption = "Response Rate by Treatment.") %>%
+  footnote(
+    general = "Summary response rate by treatment.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+
+```{r, echo=FALSE}
+#DATAFRAMES FOR COMPARING TWO GROUPS AT THE TIME.
+df01 <- df1[treatment_group %in% c(0,1)] # data that is only in control or treatment 1
+df02 <- df1[treatment_group %in% c(0,2)] # data that is in control or treatment2 
+df12 <- df1[treatment_group %in% c(1,2)] # data that is in treatment1 or treatment2
+```
+
+```{r, echo=FALSE}
+#T-Test Calculation
+tt01 <- df01[ , t.test(response~treatment_group_name)]  #T-test for No treatment vs. $5 Incentive
+tt02 <- df02[ , t.test(response~treatment_group_name)]
+tt12 <- df12[ , t.test(response~treatment_group_name)]  #T-test for $5 Incentive vs. $100 Lottery
+
+df_ttest <- data.frame(
+  column_name = c("No Treatment vs. $5 Incentive", "No Treatment vs. $100 Lottery", "$5 Incentive vs. $100 Lottery"),
+  p_values = c(tt01$p.value, tt02$p.value,tt12$p.value),
+  CI_Lower_Level = c(tt01$conf.int[1],tt02$conf.int[1] ,tt12$conf.int[1]),
+  CI_Upper_Level = c(tt01$conf.int[2], tt02$conf.int[2], tt12$conf.int[2]),
+  Mean_Group1 = c(as.numeric(tt01$estimate[1]), as.numeric(tt02$estimate[1]), as.numeric(tt12$estimate[1])),
+  Mean_Group2 = c(as.numeric(tt01$estimate[2]), as.numeric(tt02$estimate[2]), as.numeric(tt12$estimate[2]))
+)
+
+tabtt <- kable(
+  df_ttest,
+  col.names = c("Comparison", "P-Value", "CI_Lower", "CI_Upper", "Mean Grp 1", "Mean Grp 2"),
+  align = c("c", "c","c", "c", "c", "c"),
+  digits = 2,
+  caption = "T-Test Summary Table:") %>%
+  footnote(
+    general = "Comparing $5 Incentive versus other treatments.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+# Power Calculation:
+
+Table 1 summarizes the response rate for each treatment group. Each treatment group includes 120 participants, and the response rates for *"No Incentive"* group was `r round(table1[1,response_rate],2)`%, for *"$5 Incentive"* group was `r round(table1[2,response_rate],2)`%, and for *"$100 Lottery"* group was `r round(table1[3,response_rate],2)`%.
+
+```{r, echo=FALSE}
+tab3 %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+The experiment was designed to achieve 80% power, with a expected response rate of 5% for the "No Incentive" group and 16% for the "$5 Incentive" group.  The power simulation recommended groups of 120 participants. These expected response rates were defined based on observed response rates for studies using similar incentives.  Relatively low expected response rates to reflect the following:  
+
+- Participants were given only two weeks to respond (from October 31st to November 14th).  
+- One of the two weeks was a break at MIDS  (Nov 8th to Nov 14th).  
+- No reminder was sent to participants.  
+
+Given the the observed response rates (see Table 1) in the experiment, using the power simulation comparing the "No Incentive" and "$5 Incentive" groups, **Table 2** presents a summary of the power calculation for different sample sizes.  Based on this simulation, the power for this experiment (120 participants per group) is around `r as.numeric(df_power_exp1[sample_size == 120, 'Power'])`%.  To achieve a power of 80%, it requires groups of around `r as.numeric(df_power_exp1[nrow(df_power_exp1)-1, 'sample_size'])`.  
+
+
+```{r, echo=FALSE}
+#for printing dataframes: 
+# https://zief0002.github.io/book-8252/pretty-printing-tables-in-markdown.html
+# https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+
+tab01 %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Graph 1 presents the power calculation curve for "No Incentive" versus "$5 Incentive" groups.  The red line indicates the power for the current experiment given the observed response rates with group sizes of 120 participants.
+
+```{r, echo=FALSE, fig.height=4, fig.width=6, fig.align="center"}
+fig_pc_01
+```
+
+In addition, using the power simulation comparing the "$5 Incentive" and "$100 Lottery" groups, given the observed response rates (see Table 1), **Table 3** presents a summary of the power calculation for different experiment sample sizes.  Based on this simulation, the power for this experiment (120 participants per group) is around `r as.numeric(df_power_exp2[sample_size == 120, 'Power'])`%.  To achieve a power of 80%, it is required groups of around `r as.numeric(df_power_exp2[nrow(df_power_exp2)-1, 'sample_size'])` participants (given the observed response rates).  
+
+```{r, echo=FALSE}
+#for printing dataframes: 
+# https://zief0002.github.io/book-8252/pretty-printing-tables-in-markdown.html
+# https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+
+tab02 %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+Graph 2 presents the power calculation curve for "$5 Incentive" versus "$100 Lottery" groups.  The red line indicates the power for the current experiment given the observed response rates, and group sizes of 120 participants.
+
+```{r, echo=FALSE, fig.height=4, fig.width=6, fig.align="center"}
+fig_pc_02
+```
+
+#T-Test Analysis:
+
+T-test analysis was performed to compare the following response rates:     
+
+>(1) "$5 Incentive" group (`r round(as.numeric(tt01$estimate[1])*100,2)`%) vs. "No Incentive" group (`r round(as.numeric(tt01$estimate[2])*100,2)`%).  
+
+>(2) "$100 Lottery" group (`r round(as.numeric(tt02$estimate[1])*100,2)`%) vs. "No Incentive" group (`r round(as.numeric(tt02$estimate[2])*100,2)`%).  
+
+>(3) "$100 Lottery" group (`r round(as.numeric(tt12$estimate[1])*100,2)`%)vs. "$5 Incentive" group (`r round(as.numeric(tt12$estimate[2])*100,2)`%).  
+
+The table below presents a summary of t-test results. In summary:  
+
+>(1) With a p-value of `r tt01$p.value` (> 0.05), we fail to reject the null hypothesis of the average response rate being equal.  Thus, there is not enough evidence supporting that the average response rates for "$5 Incentive" (`r round(as.numeric(tt01$estimate[1])*100,2)`%) is statistically different from the average response rates for "No Incentive" (`r round(as.numeric(tt01$estimate[2])*100,2)`%), at a 95% confidence.   
+
+>(2) With a p-value of `r tt02$p.value` (> 0.05), we fail to reject the null hypothesis of the average response rate being equal.  Thus, there is not enough evidence supporting that the average response rates for "$100 Lottery" (`r round(as.numeric(tt02$estimate[1])*100,2)`%) is statistically different from the average response rates for "No Incentive" (`r round(as.numeric(tt02$estimate[2])*100,2)`%), at a 95% confidence.   
+
+>(3) With a p-value of `r tt12$p.value` (< 0.05), we reject the null hypothesis of the average response rate being equal.  Thus, there is not enough evidence supporting that the average response rates for "$100 Lottery" (`r round(as.numeric(tt12$estimate[1])*100,2)`%) is statistically different from the average response rates for "$5 Incentive" (`r round(as.numeric(tt12$estimate[2])*100,2)`%), at a 95% confidence.   
+
+
+```{r, echo=FALSE}
+tabtt  %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+# Treatment - Group Analysis:
+
+
+```{r, echo=FALSE}
+table0 = df1[ ,.(count_group = .N, responsed = sum(response)), by = .(cohort_name, treatment_group_name)]
+table0[ , rr := responsed/count_group]
+
+tab_cohort_treatment <- kable(
+  data.frame(table0),
+  col.names = c("Cohort", "Treatment Group", "Size", "Response (N)", "Response Rate (%)"),
+  align = c("c", "c","c", "c", "c"),
+  digits = 2,
+  caption = "Group Distribution and Response Rate by Cohort and Treatment Group:") %>%
+  footnote(
+    general = "Covariate analysis - checking for balance of cohorts across treatment groups.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r, echo=FALSE}
+tab_cohort_treatment
+```
+
+```{r, echo=FALSE}
+table01 = df1[ ,.(count_group = .N, response = sum(response)), by = .(treatment_group_name, in_PST)]
+table01[ , "Response Rate" := response/count_group]
+tab_in_PST <- kable(
+  data.frame(table01),
+  col.names = c("Treatment Group", "In PST", "Size", "Response (N)", "Response Rate (%)"),
+  align = c("c", "c","c", "c", "c"),
+  digits = 2,
+  caption = "Group Distribution and Response Rate by Treatment and In_PST:") %>%
+  footnote(
+    general = "Covariate analysis - checking for balance in In_PST across treatment groups.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r, echo=FALSE}
+tab_in_PST
+```
+
+
+`No Incentive (Control)` and `$100 Lottery` treatment share the same number of observations who are `in_PST`, so no covariate balance check is needed. However, `No Incentive (Control)` and `$5 Incentive` treatment differ in the number of observations who are `in_PST`, so a covariate balance check is needed.
+
+```{r warning=FALSE, echo=FALSE, include=FALSE}
+lr_PST_covBal <- df1[treatment_group %in% c(0, 1), lm(in_PST ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)'))]
+
+stargazer(
+  lr_PST_covBal,
+  type = 'text',
+  title = "Covariate Balance Check on PST:  No Incentive vs. 5 Per Survey Incentive",
+  se = list(robust_SE(lr_PST_covBal)),
+  header=F,
+  covariate.labels = c("5 Dollar Incentive", "Baseline"),
+  out='models0.htm'
+  )
+
+screenshot <- webshot("models0.htm", "models0.png", cliprect = "viewport")
+```
+
+```{r, echo=FALSE, out.height="100%", out.width="100%", fig.align="center"}
+knitr::include_graphics("models0.png")
+```
+
+Randomization was successful because the covariate balance check reveals that the proportion of observations `in_PST` does not differ statistically significantly between `No Incentive (Control)` and the `$5 Incentive` treatment.
+
+### Regression Tables
+
+#### Between No Incentive vs. $5 Incentive
+
+```{r message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+#Group 0 vs. Group 1
+
+lr1 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)'))]
+lr2 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lr3 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST)]
+lr4 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+stargazer(
+  lr1, lr2, lr3, lr4,
+  type = 'text',
+  title = "Table 1: Linear Regression - No Incentive vs. $5 Per Survey Incentive",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST included'),
+  se = list(robust_SE(lr1), robust_SE(lr2), robust_SE(lr3), robust_SE(lr4)),
+  header=F,
+  notes = "Note: Uses Robust Standard Errors.",
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", 
+                     "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+  covariate.labels = c("5 Dollar Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline"),
+  out='models1.htm'
+  )
+
+screenshot <- webshot("models1.htm", "models1.png", cliprect = "viewport")
+```
+
+```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
+knitr::include_graphics("models1.png")
+```
+
+#### Between No Incentive vs $100 Lottery
+
+```{r message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+
+lr02 <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)'))]
+lr02_a <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lr02_b <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST)]
+lr02_c <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+stargazer(
+  lr02, lr02_a, lr02_b, lr02_c,
+  title = "Table 2: Linear Regression - No Incentive vs. $100 Lottery Win",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lr02), robust_SE(lr02_a), robust_SE(lr02_b), robust_SE(lr02_c)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", 
+                     "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline"),
+   out='models2.htm')
+
+screenshot <- webshot("models2.htm", "models2.png", cliprect = "viewport")
+```
+
+```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
+knitr::include_graphics("models2.png")
+```
+
+
+#### Between $5 Incentive vs $100 Lottery
+
+```{r message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+
+lr12 <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+lr12_a <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lr12_b <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + in_PST)]
+lr12_c <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + in_PST 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+stargazer(
+  lr12, lr12_a, lr12_b, lr12_c,
+  title = "Table 3: Linear Regression - $5 Per Survey Incentive vs. $100 Lottery Win",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lr12), robust_SE(lr12_a), robust_SE(lr12_b), robust_SE(lr12_c)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", 
+                     "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline"),
+  out='models3.htm')
+
+screenshot <- webshot("models3.htm", "models3.png", cliprect = "viewport")
+```
+
+```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
+knitr::include_graphics("models3.png")
+```
+
+
+
+### Big Regression Tables
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+lrt1 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+
+lrt2 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lrt3 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + in_PST)]
+
+lrt4 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + in_PST + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+
+stargazer(
+  lrt1, lrt2, lrt3, lrt4,
+  title = "Table 4: Linear Regression - Including All Treatments",
+  column.labels = c('Simple', 'Cohort Included', 'PST Included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lrt1), robust_SE(lrt2), robust_SE(lrt3), robust_SE(lrt4)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), 
+                   c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "No Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline"),
+  out='models4.htm')
+
+screenshot <- webshot("models4.htm", "models4.png", cliprect = "viewport")
+
+```
+
+```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
+knitr::include_graphics("models4.png")
+```
+
+
+
+
+
+
+
+
+

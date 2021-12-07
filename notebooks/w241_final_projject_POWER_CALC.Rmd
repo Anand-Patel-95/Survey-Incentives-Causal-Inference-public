@@ -1,0 +1,207 @@
+---
+title: "W241_Simulation_Final"
+author: "Alexandra Drossos, Anand Patel, Carlos Moreno, Madeline Whitlow, Spencer Weston"
+date: "December, 2021"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, results='hide', message=FALSE, warning=FALSE, echo=FALSE}
+
+library(data.table)                     # for data manipulation 
+library(sandwich)                       # for creating robust SEs 
+library(lmtest)                         # for easy testing with robuse SEs
+library(stargazer)                      # for printing tables 
+library(ggplot2)
+library(tidyverse)
+
+library(kableExtra)
+library(plyr)
+
+# Used to convert sjPlot html table to image for pdf printing purposes
+library(webshot)
+library(magick)
+
+```
+
+```{r, echo=FALSE}
+# Initialize Group Parameters
+#Group designation: 0=no incentive, 1=fixed payment, 2=lottery ammount
+
+create_data <- function(group_designation, group_size, expected_response_rate){
+  
+  #Create Group Response Split by Potential Treatment Effect
+  
+
+    size1 <- as.integer(group_size[1]*expected_response_rate[1])
+    group1_resp <- c(rep(1, each=size1), rep(0, each=(group_size[1]-size1) ))
+
+    size2 <- as.integer(group_size[2]*expected_response_rate[2])
+    group2_resp <- c(rep(1, each=size2), rep(0, each= (group_size[2]-size2) ))
+
+    size3 <- as.integer(group_size[3]*expected_response_rate[3])
+    group3_resp <- c(rep(1, each=size3), rep(0, each= (group_size[3]-size3) ))
+
+  
+    response <- c(group1_resp,group2_resp, group3_resp)
+  
+  #Create assignment to groups based on size of the groups
+  study_groups <- c(rep(group_designation[1],each=group_size[1]),
+                    rep(group_designation[2],each=group_size[2]),
+                    rep(group_designation[3],each=group_size[3])
+                    )
+  
+  #Create dataframe with potential response and group assignation.
+  d <- data.table(
+      study_groups, response
+      )
+  
+  return(d)
+}
+
+```
+
+```{r, echo=FALSE}
+
+run_experiment1 <- function(d, n, group, replace){
+
+#Randomly select subjects for groups  
+  
+  df_final <- data.frame(study_groups =integer(),
+                         response = integer()) 
+  j <- 1
+  for (i in group) {
+
+    d_group <- d[d$study_groups==as.integer(i)]
+    
+    size = nrow(d_group)
+    num = n[j]
+    
+    rs <- sample(1:size, num, replace=replace)
+    j <- j + 1
+    d_sample <- d_group[rs,]
+
+    df_final <- rbind(df_final, d_sample)
+  }
+  
+  return(df_final)
+    
+}
+
+```
+
+```{r, echo=FALSE}
+#CHECK THAT SD IS DEFINED
+run_experiment <- function(d, n, group, replace){
+  
+  #print(n)
+  #print(group)
+  #print(replace)
+
+  exp <- run_experiment1(d, n, group, replace)
+  if ((!is.na(sd(exp[exp$study_group == group[1],]$response) != 0)) & 
+      (!is.na(sd(exp[exp$study_group == group[2],]$response) != 0)) &
+      (!is.na(sd(exp[exp$study_group == group[3],]$response) != 0))) {
+      finish <-TRUE}
+  else {
+    exp <- run_experiment1(d,n, group, replace)
+  }
+  return(exp)
+}
+```
+
+```{r, echo=FALSE}
+
+experiment_ttest <- function(data, sample_size, group_designation, replace) {
+  
+  #print(sample_size)
+  #print(group_designation)
+  #print(replace)
+  
+  experiment1 <- run_experiment(data, sample_size, group_designation, replace)
+  exp2 <- experiment1[experiment1$study_groups==0 | experiment1$study_groups==1]
+  t_test <- t.test(response ~ study_groups, data=exp2)
+  return(t_test$p.value)
+}
+
+```
+
+```{r, echo=FALSE}
+pval_powerc_ttest <- function(d,  n_sample, group_designation, n_sim, replace){
+  return(replicate(n=n_sim, experiment_ttest(d, n_sample, group_designation, replace)))
+}
+```
+
+```{r}
+power_table <- function(group_designation, group_size, expected_response_rate, replace, ss, n_sim_power){
+
+  
+  df_power <- data.table(sample_size = ss)
+  
+  power_list <- c()
+  
+  d <- create_data(group_designation, group_size, expected_response_rate)
+  
+  for (sse in ss){
+    sample_size <- c(sse, sse, sse)
+    pow <- mean(pval_powerc_ttest(d, sample_size, group_designation, n_sim_power, replace)<0.05,na.rm=TRUE)
+    power_list <-c(power_list, pow)
+  }
+  
+  df_power[ , "Power" := power_list * 100]
+  
+  return(df_power)
+}
+
+```
+
+
+```{r}
+#CALCUALTE POWER TABLES - RUN FIRST TIME TO SAVE IN FILES
+
+group_designation <- c(0,1,2)
+group_size <- c(5000,5000,5000)
+replace <- TRUE
+n_sim_power <- 1000
+
+```
+
+```{r}
+#POWER CALCULATION PRE-IMPLEMENTATION OF EXPERIMENT
+ss <- c(10, 20, 40, 80, 90, 100, 110, 115, 120, 125)
+expected_response_rate <- c(0.05, 0.16, 0.1)
+df_power_exp_0 <- power_table(group_designation, group_size, expected_response_rate, replace, ss, n_sim_power)
+
+#POWER CALCULATION FOR NO INCENTIVE VS. $5 INCENTIVE
+expected_response_rate <- c(0.1333, 0.2083, 0.0916)
+ss <- c(10, 50, 100, 110, 120, 200, 300, 390, 395, 400)
+df_power_exp1 <- power_table(group_designation, group_size, expected_response_rate, replace, ss, n_sim_power)
+
+#POWER CALCULATION FOR $5 INCENTIVE VS. $100 LOTTERY.
+expected_response_rate <- c(0.0916, 0.2083, 0.1333)
+ss <- c(10, 50, 100, 110, 120, 130, 135, 140, 145, 150)
+df_power_exp2 <- power_table(group_designation, group_size, expected_response_rate, replace, ss, n_sim_power)
+
+#POWER CALCULATION FOR NO INCENTIVE VS. $100 LOTTERY.
+expected_response_rate <- c(0.1333, 0.0916, 0.2083)
+ss <- c(10, 120, 200, 300, 390, 395, 400, 500, 600, 700, 800, 900, 1000)
+df_power_exp3 <- power_table(group_designation, group_size, expected_response_rate, replace, ss, n_sim_power)
+
+```
+
+
+```{r}
+#SAVE POWER CALCULATION TABLES
+write.csv(df_power_exp_0,"power_pre_expe.csv", row.names = FALSE)
+write.csv(df_power_exp1,"power_expe1.csv", row.names = FALSE)
+write.csv(df_power_exp2,"power_expe2.csv", row.names = FALSE)
+write.csv(df_power_exp3,"power_expe3.csv", row.names = FALSE)
+```

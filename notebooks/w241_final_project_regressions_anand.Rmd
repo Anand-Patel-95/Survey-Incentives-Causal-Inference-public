@@ -1,0 +1,332 @@
+---
+title: "w241_final_matching"
+author: "CEM"
+date: "11/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, results='hide', message=FALSE, warning=FALSE}
+library(data.table)                     # for data manipulation 
+library(sandwich)                       # for creating robust SEs 
+library(lmtest)                         # for easy testing with robuse SEs
+library(stargazer)                      # for printing tables 
+library(ggplot2)
+library(tidyverse)
+
+#library(grid)
+#library(gridExtra)
+library(cowplot)
+library(plyr)
+```
+
+```{r}
+#Function to calculate the Robust SE
+robust_SE <- function(model){
+  return(sqrt(diag(vcovHC(model))) )
+}
+```
+
+
+```{r}
+df1 <- read.csv("../Final_Matching_Test/treatment_assignment.csv")
+dfr <- read.csv("../Final_Matching_Test/assignment_response_match.csv")
+answers <- dfr$full_name
+df1 <- data.table(df1)
+df1[ , response := ifelse(full_name %in% answers, 1, 0)]
+head(df1)
+```
+```{r}
+write.csv(df1,"consolidated_response_rate.csv")
+```
+
+
+```{r Read in consolidated response rate}
+df1 <- read.csv("consolidated_response_rate.csv")
+df1 <- data.table(df1)
+```
+
+
+### Renaming Variables and Values
+
+```{r}
+df1[ , treatment_group_name := ifelse(treatment_group == 0, "No Incentive (Control)", 
+                                      ifelse(treatment_group == 1, "$5 Incentive", "$100 Lottery"))]
+
+df1[ , .(count = .N), by=.(treatment_group_name)]
+```
+
+
+```{r}
+df1[ , cohort_name := mapvalues(df1$cohort, 
+                                from = c(0, 1, 2, 3, 4), 
+                                to = c("Summer 2020", "Fall 2020", "Spring 2021", "Summer 2021", "Fall 2021"))]
+
+df1[ , semesters_enrolled := mapvalues(df1$cohort, 
+                                from = c(0, 1, 2, 3, 4), 
+                                to = c(5, 4, 3, 2, 1))]
+
+df1[ , .(count = .N), by=.(cohort_name)]
+```
+
+
+### EDA on variables
+
+```{r}
+table0 = df1[ ,.(count_group = .N, responsed = sum(response)), by = .(cohort_name, treatment_group_name)]
+table0[ , rr := responsed/count_group]
+table0
+```
+
+```{r}
+table01 = df1[ ,.(count_group = .N, response = sum(response)), by = .(treatment_group_name, in_PST)]
+table01[ , rr := response/count_group]
+table01
+```
+
+> `No Incentive (Control)` and `$100 Lottery` treatment share the same number of observations who are in_PST, so no covariate balance check is needed. However, `No Incentive (Control)` and `$5 Incentive` treatment differ in the number of observations who are in_PST, so a covariate balance check is needed.
+
+```{r warning=FALSE}
+lr_PST_covBal <- df1[treatment_group %in% c(0, 1), lm(in_PST ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)'))]
+
+stargazer(
+  lr_PST_covBal,
+  type = 'text',
+  title = "Covariate Balance Check on PST:  No Incentive vs. 5 Per Survey Incentive",
+  se = list(robust_SE(lr_PST_covBal)),
+  header=F,
+  covariate.labels = c("5 Dollar Incentive", "Baseline")
+  )
+
+
+```
+
+> Randomization was successful because the covariate balance check reveals that the proportion of observations `in_PST` does not differ statistically significantly between control and the `$5 Incentive` treatment.
+
+
+```{r}
+table1 = df1[ ,.(count_group = .N, response = sum(response)), by = .(treatment_group_name)]
+table1[ , response_rate := response/count_group]
+table1
+```
+
+
+```{r}
+table2 = df1[ ,.(count_group = .N, responsed = sum(response)), by = .(cohort_name, treatment_group_name, in_PST)]
+table2[ , rr := responsed/count_group]
+table2
+```
+
+### Regression Tables
+
+#### Between No Incentive vs. $5 Incentive
+
+```{r message=FALSE, warning=FALSE}
+#Group 0 vs. Group 1
+df01 <- df1[treatment_group %in% c(0,1)] # data that is only in control or treatment 1
+lr1 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)'))]
+lr2 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lr3 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST)]
+lr4 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+stargazer(
+  lr1, lr2, lr3, lr4,
+  type = 'text',
+  title = "Table 1: Linear Regression - No Incentive vs. $5 Per Survey Incentive",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST included'),
+  se = list(robust_SE(lr1), robust_SE(lr2), robust_SE(lr3), robust_SE(lr4)),
+  header=F,
+  notes = "Note: Uses Robust Standard Errors.",
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+  covariate.labels = c("5 Dollar Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline")
+  )
+```
+
+```{r}
+tt01 <- df01[ , t.test(response~treatment_group_name)]
+tt01
+```
+
+#### Between No Incentive vs $100 Lottery
+
+```{r message=FALSE, warning=FALSE}
+df02 <- df1[treatment_group %in% c(0,2)] # data that is in control or treatment2
+lr02 <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)'))]
+lr02_a <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lr02_b <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST)]
+lr02_c <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+stargazer(
+  lr02, lr02_a, lr02_b, lr02_c,
+  title = "Table 2: Linear Regression - No Incentive vs. $100 Lottery Win",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lr02), robust_SE(lr02_a), robust_SE(lr02_b), robust_SE(lr02_c)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline")
+)
+```
+
+
+
+
+
+```{r}
+tt02 <- df02[ , t.test(response~treatment_group_name)]
+tt02
+```
+
+
+#### Between $5 Incentive vs $100 Lottery
+
+```{r message=FALSE, warning=FALSE}
+df12 <- df1[treatment_group %in% c(1,2)] # data that is in treatment1 or treatment2
+lr12 <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+lr12_a <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lr12_b <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + in_PST)]
+lr12_c <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + in_PST 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+stargazer(
+  lr12, lr12_a, lr12_b, lr12_c,
+  title = "Table 3: Linear Regression - $5 Per Survey Incentive vs. $100 Lottery Win",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lr12), robust_SE(lr12_a), robust_SE(lr12_b), robust_SE(lr12_c)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline")
+)
+```
+
+
+
+
+
+```{r}
+tt12 <- df12[ , t.test(response~treatment_group_name)]
+tt12
+```
+
+
+
+### Big Regression Tables
+
+
+```{r message=FALSE, warning=FALSE}
+lrt1 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+
+lrt2 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lrt3 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + in_PST)]
+
+lrt4 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + in_PST + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+
+stargazer(
+  lrt1, lrt2, lrt3, lrt4,
+  title = "Table 4: Linear Regression - Including All Treatments",
+  column.labels = c('Simple', 'Cohort Included', 'PST Included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lrt1), robust_SE(lrt2), robust_SE(lrt3), robust_SE(lrt4)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), 
+                   c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar.", "5 dollar, Summer 2020.", "5 dollar, Not PST.", "5 dollar, Summer 2020, Not PST.")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "No Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline")
+)
+```
+
+
+## DONT ADD BELOW TABLES
+
+> WARNING: POWER might be too low fpr HTE analysis b/c few samples. Maybe leave off.
+
+```{r warning=FALSE}
+# Heterogeneous Treatment Effects: in_PST 
+
+
+lr_notPST <- df1[ in_PST %in% c(0), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+
+lr_PST <- df1[ in_PST %in% c(1), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+
+lr_notPST_cohort <- df1[ in_PST %in% c(0), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+lr_PST_cohort <- df1[ in_PST %in% c(1), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+stargazer(
+  lr_notPST, lr_PST, lr_notPST_cohort, lr_PST_cohort,
+  title = "Table 4: Linear Regression - Heterogeneous Treatment Effects for being in PST",
+  column.labels = c('Not PST', 'PST', 'Not PST, Cohorts', 'PST, Cohorts'),
+  type = 'text',
+  se = list(robust_SE(lr_notPST), robust_SE(lr_PST), robust_SE(lr_notPST_cohort), robust_SE(lr_PST_cohort)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "No", "Yes", "Yes"), 
+                   c("Baseline is:", "5 dollar.", "5 dollar.", "5 dollar, Summer 2020.", "5 dollar, Summer 2020.")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "No Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", "Baseline")
+)
+
+```
+
+
+### OLD CODE - NOT WORKING PROPERLY
+
+```{r}
+#df1[ , treatment_group_name := ifelse(treatment_group == 0, "No Incentive", ifelse(treatment_group == 1, "$5 Incentive", "$100 Lottery"))]
+lrtotal1 <- df1[ , lm(response ~ relevel(factor(treatment_group), ref=2))]
+#names(lrtotal1$coefficients) <- c('5_Incentive','No_Incentive','100_Lottery')
+lrtotal2 <- df12[ , lm(response ~ relevel(factor(treatment_group), ref=1) + factor(cohort))]
+#names(lrtotal2$coefficients) <- c('5_Incentive','No_Incentive','100_Lottery', 'Cohort1', 'Cohort2', 'Cohort3')
+#lr12_b <- df12[ , lm(response ~ as.factor(treatment_group) + in_PST + factor(cohort))]
+
+stargazer(
+  lrtotal1, lrtotal2,
+  title = "Table 2: Linear Regression - $5 Per survey incentive vs. $100 Lottery win",
+  column.labels = c('Simple', 'Cohort Included', 'Cohort and PST'),
+  type = 'text',
+  #se = list(robust_SE(lr12), robust_SE(lr12_a), robust_SE(lr12_b)),
+  se = list(robust_SE(lrtotal1), robust_SE(lrtotal2)),
+  omit = 'cohort',
+  notes = 'Note: Uses Robust Standard Error, Cohort included but ommitted in Model 2 and 3.'
+)
+```
+
+
+
+
+
+
+

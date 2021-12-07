@@ -1,0 +1,706 @@
+---
+title: "W241_Simulation_Final"
+author: "Alexandra Drossos, Anand Patel, Carlos Moreno, Madeline Whitlow, Spencer Weston"
+date: "December, 2021"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, results='hide', message=FALSE, warning=FALSE, echo=FALSE}
+
+library(data.table)                     # for data manipulation 
+library(sandwich)                       # for creating robust SEs 
+library(lmtest)                         # for easy testing with robuse SEs
+library(stargazer)                      # for printing tables 
+library(ggplot2)
+library(ggrepel)
+library(tidyverse)
+
+library(kableExtra)
+library(plyr)
+
+# Used to convert sjPlot html table to image for pdf printing purposes
+library(webshot)
+library(magick)
+
+library(cowplot) #To plot graphs in a grid
+
+```
+
+```{r, echo=FALSE}
+#READ POWER CALCULATION TABLES
+df_power_exp_0 <- read.csv("power_pre_expe.csv")
+df_power_exp1 <- read.csv("power_expe1.csv")
+df_power_exp2 <- read.csv("power_expe2.csv")
+df_power_exp3 <- read.csv("power_expe3.csv")
+
+df_power_exp_0 <- data.table(df_power_exp_0)
+df_power_exp1 <- data.table(df_power_exp1)
+df_power_exp2 <- data.table(df_power_exp2)
+df_power_exp3 <- data.table(df_power_exp3)
+
+```
+
+```{r, echo=FALSE}
+#USE THIS IF CONSOLIDATED FILE ALREADY EXISTS
+df1 <- read.csv("consolidated_response_rate.csv")
+df1 <- data.table(df1)
+```
+
+```{r, echo=FALSE}
+#TABLE: PRE EXPERIMENT - SAMPLE POWER CALCULATION TABLE FOR No Incentive vs. $5 Incentive.
+#for printing dataframes: 
+# https://zief0002.github.io/book-8252/pretty-printing-tables-in-markdown.html
+# https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+
+tab00 <- kable(
+  data.frame(df_power_exp_0),
+  col.names = c("Group Size", "Power (%)"),
+  align = c("c", "c"),
+  digits = c(0,2),
+  caption = "Power Calculation:") %>%
+  footnote(
+    general = "No Incentive vs. $5 Incentive.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r, echo=FALSE, fig.height=6, fig.align="center"}
+#FIGURE: PRE-EXPERIMENT-POWER CURVE FOR No Incentive vs. $5 Incentive
+p0 <- as.numeric(df_power_exp_0[sample_size == 120, 'Power'])
+fig_pc_00 <- df_power_exp_0 %>%
+  ggplot() +
+  geom_line(aes(x=sample_size, y=Power)) +
+  labs(title="Graph 1: Sample Size vs. Power - No Incentive vs. $5 Incentive",
+       subtitle = "Pre Experiment: Groups of 120 participants are needed to Achieve 80% Power",
+       x = "Group Size (Size for Each Group)", 
+       y = "Power (%)") +
+  labs(color = 'Labels') +
+  annotate("text", x=120+10, y= p0, label= paste(toString(p0),"%",sep="")) + 
+  geom_hline(aes(yintercept=80, color="80% Power Line"), linetype="dashed", size= 1) +
+  geom_vline(aes(xintercept=120, color="120 (Sample)"), linetype="dashed", size= 1) +
+  theme_minimal() +
+  theme(legend.position = "bottom", text = element_text(size = 8))
+#fig_pc_00
+```
+
+
+```{r, echo=FALSE}
+#TABLE: SAMPLE POWER CALCULATION TABLE FOR No Incentive vs. $5 Incentive.
+tab01 <- kable(
+  data.frame(df_power_exp1),
+  col.names = c("Group Size", "Power (%)"),
+  align = c("c", "c"),
+  digits = c(0,2),
+  caption = "Power Calculation:") %>%
+  footnote(
+    general = "No Incentive vs. $5 Incentive.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE)%>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r, echo=FALSE, fig.height=6, fig.align="center"}
+#FIGURE: POWER CURVE FOR No Incentive vs. $5 Incentive
+p1 <- as.numeric(df_power_exp1[sample_size == 120, 'Power'])
+fig_pc_01 <- df_power_exp1 %>%
+  ggplot() +
+  geom_line(aes(x=sample_size, y=Power)) +
+  labs(title="Graph 2: Power Curve \nNo Incentive vs. $5 Incentive",
+       subtitle = "Power is around 32.8% (groups of 120)",
+       x = "Group Size (Size for Each Group)", 
+       y = "Power (%)") +
+  labs(color = 'Labels') +
+  annotate("text", x=120+80, y= p1, label= paste(toString(p1),"%", sep="")) + 
+  geom_hline(aes(yintercept=80, color="80%"), linetype="dashed", size= 1) +
+  geom_vline(aes(xintercept=120, color="120 current Sample"), linetype="dashed", size= 1) +
+  theme_minimal() +
+  theme(legend.position = "bottom", text = element_text(size = 8))
+
+```
+
+
+```{r, echo=FALSE}
+#TABLE: SAMPLE POWER CALCULATION TABLE FOR $5 Incentive vs. $100 Lottery
+tab02 <- kable(
+  data.frame(df_power_exp2),
+  col.names = c("Group Size", "Power (%)"),
+  align = c("c", "c"),
+  digits = c(0,2),
+  caption = "Power Calculation:") %>%
+  footnote(
+    general = "$5 Incentive vs. $100 Lottery.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r, echo=FALSE}
+#FIGURE: POWER CURVE FOR $5 Incentive vs. $100 Lottery
+p2 <- as.numeric(df_power_exp2[sample_size == 120, 'Power'])
+fig_pc_02 <- df_power_exp2 %>%
+  ggplot() +
+  geom_line(aes(x=sample_size, y=Power)) + 
+  labs(title="Graph 3: Power Curve \n$5 Incentive vs. $100 Lottery.",
+       subtitle ="Power is around 73.7% (groups of 120)",
+       x = "Group Size (Size for Each Group)", 
+       y = "Power (%)") +
+  labs(color = 'Labels') +
+  annotate("text", x=120+25, y= p2, label= paste(toString(p2),"%",sep="")) + 
+  geom_hline(aes(yintercept=80, color="80%"), linetype="dashed", size= 1) +
+  geom_vline(aes(xintercept=120, color="120 current Sample"), linetype="dashed", size= 1) +
+  theme_minimal() +
+  theme(legend.position = "bottom", text = element_text(size = 8))
+
+```
+
+
+```{r, echo=FALSE}
+#TABLE: SAMPLE POWER CALCULATION TABLE FOR NO INCENTIVE vs. $100 Lottery
+tab03 <- kable(
+  data.frame(df_power_exp3),
+  col.names = c("Group Size", "Power (%)"),
+  align = c("c", "c"),
+  digits = c(0,2),
+  caption = "Power Calculation:") %>%
+  footnote(
+    general = "NO INCENTIVE vs. $100 Lottery.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r, echo=FALSE}
+#FIGURE: POWER CURVE FOR NO INCENTIVE vs. $100 Lottery
+p2 <- as.numeric(df_power_exp3[sample_size == 120, 'Power'])
+fig_pc_03 <- df_power_exp3 %>%
+  ggplot() +
+  geom_line(aes(x=sample_size, y=Power)) + 
+  labs(title="Graph 4: Power Curve \nNO INCENTIVE vs. $100 Lottery.",
+       subtitle ="Power is around 16.9% (groups of 120)",
+       x = "Group Size (Size for Each Group)", 
+       y = "Power (%)") +
+  labs(color = 'Labels') +
+  annotate("text", x=120+80, y= p2, label= paste(toString(p2),"%",sep="")) + 
+  geom_hline(aes(yintercept=80, color="80%"), linetype="dashed", size= 1) +
+  geom_vline(aes(xintercept=120, color="120 current Sample"), linetype="dashed", size= 1) +
+  theme_minimal() +
+  theme(legend.position = "bottom", text = element_text(size = 8))
+
+```
+
+```{r, echo=FALSE}
+tab03
+```
+
+```{r, echo=FALSE}
+fig_pc_03
+```
+
+
+
+
+
+
+```{r, echo=FALSE}
+#Function to calculate the Robust SE
+robust_SE <- function(model){
+  return(sqrt(diag(vcovHC(model))) )
+}
+```
+
+
+```{r, echo=FALSE}
+#RENAMING VARIABLES
+df1[ , treatment_group_name := ifelse(treatment_group == 0, "No Incentive (Control)", 
+                                      ifelse(treatment_group == 1, "$5 Incentive", "$100 Lottery"))]
+
+df1[ , cohort_name := mapvalues(df1$cohort, 
+                                from = c(0, 1, 2, 3, 4), 
+                                to = c("Summer 2020", "Fall 2020", "Spring 2021", "Summer 2021", "Fall 2021"))]
+
+df1[ , semesters_enrolled := mapvalues(df1$cohort, 
+                                from = c(0, 1, 2, 3, 4), 
+                                to = c(5, 4, 3, 2, 1))]
+```
+
+
+
+```{r, echo=FALSE}
+#SUMMARY TABLE FOR RESPONSE RATE BY TREATMENT GROUP
+table1 = df1[ ,.(count_group = .N, response = sum(response)), by = .(treatment_group_name)]
+table1[ , response_rate := (response/count_group)*100]
+tab3 <- kable(
+  data.frame(table1),
+  col.names = c("Treatment", "Group Size", "Response (N)", "Response (%)"),
+  align = c("l", "c", "c", "c"),
+  digits = c(2,2,2),
+  caption = "Response Rate by Treatment.") %>%
+  footnote(
+    general = "Summary response rate by treatment.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+
+```{r, echo=FALSE}
+#DATAFRAMES FOR COMPARING TWO GROUPS AT THE TIME.
+df01 <- df1[treatment_group %in% c(0,1)] # data that is only in control or treatment 1
+df02 <- df1[treatment_group %in% c(0,2)] # data that is in control or treatment2 
+df12 <- df1[treatment_group %in% c(1,2)] # data that is in treatment1 or treatment2
+```
+
+```{r, echo=FALSE}
+#T-Test Calculation
+tt01 <- df01[ , t.test(response~treatment_group_name, var.equal=FALSE)]  #T-test for No treatment vs. $5 Incentive
+tt02 <- df02[ , t.test(response~treatment_group_name, var.equal=FALSE)]  #T-test for No treatment vs. $100 Lottery
+tt12 <- df12[ , t.test(response~treatment_group_name, var.equal=FALSE)]  #T-test for $5 Incentive vs. $100 Lottery
+
+#CREATE DATA FRAME FOR SUMMARY RESULTS FOR T-TEST
+f1 = 100
+df_ttest <- data.frame(
+  column_name = c("No Treatment vs. $5 Incentive", "No Treatment vs. $100 Lottery", "$5 Incentive vs. $100 Lottery"),
+  p_values = c(tt01$p.value, tt02$p.value,tt12$p.value),
+  CI_Lower_Level = c(tt01$conf.int[1],tt02$conf.int[1] ,tt12$conf.int[1])*f1,
+  CI_Upper_Level = c(tt01$conf.int[2], tt02$conf.int[2], tt12$conf.int[2])*f1,
+  Mean_Diff = c( (as.numeric(tt01$estimate[1])-as.numeric(tt01$estimate[2])),
+                 (as.numeric(tt02$estimate[1])-as.numeric(tt02$estimate[2])),
+                 (as.numeric(tt12$estimate[1])-as.numeric(tt12$estimate[2]))
+               )*f1,
+  Mean_Group1 = c(as.numeric(tt01$estimate[2]), as.numeric(tt02$estimate[2]), as.numeric(tt12$estimate[2]))*f1,
+  Mean_Group2 = c(as.numeric(tt01$estimate[1]), as.numeric(tt02$estimate[1]), as.numeric(tt12$estimate[1]))*f1
+)
+
+#SUMMARY TABLE FOR T-TEST RESULTS
+tabtt <- kable(
+  df_ttest,
+  col.names = c("Comparison", "P-Value", "CI_Lower", "CI_Upper", "Mean Diff", "Mean Grp 1", "Mean Grp 2"),
+  align = c("c", "c","c", "c", "c", "c", "c"),
+  digits = 2,
+  caption = "T-Test Summary Table:") %>%
+  footnote(
+    general = "Mean and Confidence interval in percentage (%). Uses Robust Standard Errors.",
+    general_title = "Note.",
+    footnote_as_chunk = TRUE) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+```
+
+
+```{r, echo=FALSE}
+
+#T-TEST CONFIDENCE INTERVAL GRAPH
+tt_ci_graph <- df_ttest %>%
+  ggplot() +
+  geom_point(aes(x=column_name, y=Mean_Diff)) +
+  geom_errorbar(aes(x=column_name, ymin = CI_Lower_Level, ymax = CI_Upper_Level)) +
+  labs(title="Confidence Interval for Difference in Mean Response Rate.",
+     subtitle ="T-test Results",
+     x = "Treatment Group Comparison", 
+     y = "CI for Difference in Means") +
+  annotate("text", x="No Treatment vs. $5 Incentive", y= -5, label= paste("p-val=",toString(round(tt01$p.value,2)),sep="")) +
+  annotate("text", x="No Treatment vs. $100 Lottery", y= -15, label= paste("p-val=",toString(round(tt02$p.value,2)),sep="")) +
+  annotate("text", x="$5 Incentive vs. $100 Lottery", y= -23, label= paste("p-val=",toString(round(tt12$p.value,2)),sep="")) +
+  annotate("text", x=3.12, y= df_ttest$Mean_Diff[1], label= toString(round(df_ttest$Mean_Diff[1],2))) +
+  annotate("text", x=2.12, y= df_ttest$Mean_Diff[2], label= toString(round(df_ttest$Mean_Diff[2],2))) +
+  annotate("text", x=1.12, y= df_ttest$Mean_Diff[3], label= toString(round(df_ttest$Mean_Diff[3],2))) 
+```
+
+
+# Power Calculation:
+
+### Power Calculation: Pre Experiment Implementation Calculation.
+
+A simulation was implemented to estimate the group sizes required to achieve 80% power.  “No Incentive” was considered the control group, and “$5 Incentive” was considered the main treatment group.  The expected response rates were estimated as follows:
+
+> - 5% response rate for "No Incentive" group (no monetary incentive provided).
+- 16% response rate for "$5 Incentive" group ($5 Amazon Gift card for participants answering the survey).
+
+The response rates were estimated on the lower range to reflect the following:
+
+> - Participants were given only two weeks to respond (from October 31st to November 14th).
+- One of the two weeks was a break at MIDS  (Nov 8th to Nov 14th).
+- No reminder was sent to participants.
+
+The following graph presents the power calculation curve used to define group sizes to achieve 80% power. Based on the simulation, it was determined that groups of 120 participants are needed to achieve 80% power (indicated by the red line in the graph below).
+
+
+```{r, echo=FALSE, fig.height=4, fig.width=6, fig.align="center"}
+fig_pc_00
+```
+
+
+### Summary Response Rate by Treatment Group
+
+Table 1 summarizes the response rate for each treatment group. Each treatment group includes 120 participants, and the response rates for *"No Incentive"*, for *"$5 Incentive"* and for *"$100 Lottery"* groups were `r round(table1[1,response_rate],2)`%,  `r round(table1[2,response_rate],2)`%,  and `r round(table1[3,response_rate],2)`% respectively.
+
+```{r, echo=FALSE}
+tab3 %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+### Statistical Power Calculation - Post Study Implementation
+
+Given the observed response rates (see Table 1) in the experiment, using a power simulation comparing the "No Incentive" and "$5 Incentive" groups, the power for this experiment (120 participants per group) is around `r as.numeric(df_power_exp1[sample_size == 120, 'Power'])`%.  To achieve a power of 80%, it requires groups of around `r as.numeric(df_power_exp1[nrow(df_power_exp1)-1, 'sample_size'])` participants.  
+
+In addition, using a power simulation comparing the "$5 Incentive" and "$100 Lottery" groups, given the observed response rates (see Table 1), the power for this experiment (120 participants per group) is around `r as.numeric(df_power_exp2[sample_size == 120, 'Power'])`%.  To achieve a power of 80%, it requires groups of around `r as.numeric(df_power_exp2[nrow(df_power_exp2)-1, 'sample_size'])` participants.  
+
+
+Graph 2 and 3 (below) present the power calculation curve for "No Incentive" versus "$5 Incentive" groups, and for "$5 Incentive" versus "$100 Lottery" groups respectively.  The red line indicates the power for the current experiment given the observed response rates for group sizes of 120 participants.
+
+
+```{r Box Plot and Age Distribution of Political Parties, echo=FALSE, fig.height=6}
+plot_grid(fig_pc_01, fig_pc_02, rel_heights = c(1,1), rel_widths = c(1,1), scale=c(0.8,0.8))
+```
+
+
+# T-Test Analysis:
+
+Based on a predefined statistical plan, a t-test analysis was performed to compare the following response rates:     
+
+>(1) "$5 Incentive" group (`r round(as.numeric(tt01$estimate[1])*100,2)`%) vs. "No Incentive" group (`r round(as.numeric(tt01$estimate[2])*100,2)`%).
+(2) "$100 Lottery" group (`r round(as.numeric(tt02$estimate[1])*100,2)`%) vs. "No Incentive" group (`r round(as.numeric(tt02$estimate[2])*100,2)`%).
+(3) "$100 Lottery" group (`r round(as.numeric(tt12$estimate[1])*100,2)`%)vs. "$5 Incentive" group (`r round(as.numeric(tt12$estimate[2])*100,2)`%).
+
+The table below presents a summary of t-test results using un-adjusted $\alpha$ value of 0.05. In summary:
+
+>(1) With a p-value of `r round(tt01$p.value,3)` (> 0.05), we fail to reject the null hypothesis of the average response rate being equal.  Thus, there is not enough evidence supporting that the average response rate for "$5 Incentive" (`r round(as.numeric(tt01$estimate[1])*100,2)`%) is statistically different from the average response rate for "No Incentive" (`r round(as.numeric(tt01$estimate[2])*100,2)`%), at a 95% confidence.   
+
+>(2) With a p-value of `r round(tt02$p.value,3)` (> 0.05), we fail to reject the null hypothesis of the average response rate being equal.  Thus, there is not enough evidence supporting that the average response rates for "$100 Lottery" (`r round(as.numeric(tt02$estimate[1])*100,2)`%) is statistically different from the average response rates for "No Incentive" (`r round(as.numeric(tt02$estimate[2])*100,2)`%), at a 95% confidence.   
+
+>(3) With a p-value of `r round(tt12$p.value,3)` (< 0.05), we reject the null hypothesis of the average response rate being equal.  Thus, there is evidence suggesting the average response rates for "$100 Lottery" (`r round(as.numeric(tt12$estimate[1])*100,2)`%) is statistically different from the average response rates for "$5 Incentive" (`r round(as.numeric(tt12$estimate[2])*100,2)`%), at a 95% confidence. 
+
+```{r, echo=FALSE}
+tabtt  %>%
+  kable_styling(latex_options = "HOLD_position")
+#Bonferoni
+#0.05/3
+
+#Holms
+#Divide by numbers of significant results -> which is one.
+#PLOT THE CONFIDENCE INTERVALS
+```
+
+Given that three statistical tests were performed, we also evaluated the t-test results using an adjusted $\alpha$ of `r round(0.05/3,3)` ($\alpha$=0.05/3 - Bonferroni Adjustment). Using the adjusted $\alpha$, the above statistical conclusions are still valid. In the case of the third comparison, With a p-value of `r round(tt12$p.value,3)` (< `r round(0.05/3,3)`), we reject the null hypothesis of the average response rate being equal. Thus, there is evidence suggesting the average response rates for "$100 Lottery" (`r round(as.numeric(tt12$estimate[1])*100,2)`%) is statistically different from the average response rates for "$5 Incentive" (`r round(as.numeric(tt12$estimate[2])*100,2)`%).
+
+Though we fail to reject the null hypothesis of "No Incentive" response rate being equal to "$5 Incentive" response rate, the magnitude of the response rate difference is numerically large (`r -round(as.numeric(tt01$estimate[2])*100,2) + round(as.numeric(tt01$estimate[1])*100,2)`%), and the power analysis suggests the study may be underpowered to detect significant differences.  Our power calculation indicates that a group size of `r as.numeric(df_power_exp1[nrow(df_power_exp1)-1, 'sample_size'])` is needed to achieve 80% power, given the response rates observed.  
+
+The following graph presents the confidence interval for the differences in response rates for the t-test analysis.  As it can be seen the confidence interval for the difference in average response rate between "$5 Incentive" and "$100 Lottery" does not include the value zero which aligns with the conclusion that the average response rates are statistically different.  On the other hand, the other two confidence intervals include the value zero, indicating that the difference in average response rate may not be statistically different.
+
+```{r, echo=FALSE}
+tt_ci_graph
+```
+
+In summary, the t-test analysis suggests that survey participants prefer to have an inmediate incentive (in this case $5 incentive) to not having an incentive or being entered into a $100 lottery.  The results were not statistically different when comparing "$5 incentive" and "No Incentive", but the magnitude of the difference suggests that the average difference is substantial, and the study may have been underpowered to detect a statistically significant difference.
+
+# Section X.6: Regression Analysis
+
+Based on a predefined statistical plan, the following Linear Regression Analysis was performed:
+
+>- Comparison of "No Incentive" vs. "$5 Incentive" Linear Regression.
+- Comparison of "No Incentive" vs. "$100 Lottery" Linear Regression.
+- Comparison of "$5 Incentive"" vs. "$100 Lottery" Linear Regression.
+- All Treatment (Incentives) Summary Linear Regression.
+- Heterogeneous Treatment Effect Analysis Linear Regression.
+
+The following sessions discuss results from this linear regression analysis.
+
+## No Incentive vs. $5 Incentive
+
+In this session, we evaluate the impact on Average Response Rate of having "$5 Incentive" versus "No Incentive". The table below presents the results from the different linear regressions comparing these treatments, using "No Incentive" as the reference level (baseline) for treatment.  The linear regressions were developed using Robust Standard Errors. The four linear regression models are as follows:  
+
+- **Model 1:** Average Response Rate (ARR) on Treatment ($5).
+$$ ARR = b_0 + b_1 * Treatment_5 $$
+- **Model 2:** Average Response Rate (ARR) on Treatment ($5) plus Cohort as covariate.
+$$ ARR = b_0 + b_1 * Treat_5 + b_2 *Fall2020 + b_3 * Fall2021 + b_4 * Spring2021 + b_5 * Summer2021$$
+- **Model 3:** Average Response Rate (ARR) on Treatment ($5) plus PST (Pacific Time) as covariate.
+$$ ARR = b_0 + b_1 * Treatment_5 + b_2 * InPST$$
+
+- **Model 4:** Average Response Rate (ARR) on Treatment ($5) plus Cohort and PST (Pacific Time) as covariate.
+$$ ARR = b_0 + b_1 * Treat_5 + b_2 *Fall2020 + b_3 * Fall2021 + b_4 * Spring2021 + b_5 * Summer2021 + b_6 *InPST $$
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+#Group 0 vs. Group 1
+
+lr1 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)'))]
+lr2 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lr3 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST)]
+lr4 <- df01[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+#Models using Robust Standard Error to get p-values
+rLr1 <- coeftest(lr1, cov=vcovHC)
+rLr2 <- coeftest(lr2, cov=vcovHC)
+rLr3 <- coeftest(lr3, cov=vcovHC)
+rLr4 <- coeftest(lr4, cov=vcovHC)
+
+stargazer(
+  lr1, lr2, lr3, lr4,
+  type = 'text',
+  title = "Table 1: Linear Regression - No Incentive vs. $5 Per Survey Incentive",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST included'),
+  se = list(robust_SE(lr1), robust_SE(lr2), robust_SE(lr3), robust_SE(lr4)),
+  header=F,
+  notes = "Note: Uses Robust Standard Errors.",
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "No Incentive (Control)", "No Incentive (Control)", 
+                     "No Incentive (Control)", "No Incentive (Control)")),
+  covariate.labels = c("5 Dollar Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline"),
+  out='models1.htm'
+  )
+
+screenshot <- webshot("models1.htm", "models1.png", cliprect = "viewport")
+```
+
+```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
+knitr::include_graphics("models1.png")
+```
+
+
+From model 1, we conclude that "No Incentive" treatment group had an Average Response Rate (ARR) of `r round(as.numeric(lr1$coefficients[1])*100,2)`%, and "$5 Incentive" treatment group had an increase in Average Response Rate, versus "No Treatment", of `r round(as.numeric(lr1$coefficients[2])*100,2)`%. Using Robust Standard Errors, with a p-value of `r round(rLr1[2,4],3)` (>0.05), model 1 suggests that the added ARR for "$5 Incentive" is not statistically significant. Thus we fail to reject the null hypothesis of "$5 Incentive" coefficient being equal to zero.  In other words, even though the magnitude of the increase in ARR is relatively large for "$5 Incentive" versus "No Incentive", it is not statistically different from zero. 
+
+As covariates for Cohort were added in model 2, the estimated increase in ARR for "$5 Incentive" versus "No Incentive" is maintained at `r round(as.numeric(lr2$coefficients[2])*100,2)`%. This indicates that the random block assignment using the different cohorts was successful in breaking any potential correlation between cohort and ARR.  In addition, with a p-value of `r round(rLr2[2,4],3)` (>0.05), this coefficient is not statistically different from zero. However, the addition of the cohort as covariate did not help in improving the precision for the coefficient, as the coefficient's Robust Standard Error is the same as in model 1.
+
+In model 3, a covariate of Pacific Time (PST) was added to model 1. Similarly to what was observed in model 1 and 2, the estimated increase in ARR for "$5 Incentive" versus "No Incentive" is maintained at `r round(as.numeric(lr3$coefficients[2])*100,2)`%. Though we did not perform a random block assignment using PST, this covariate may not be correlated with ARR, as the estimate for ARR for "$5 Incentive" is maintained.  As in previous models, with a p-value of `r round(rLr3[2,4],3)` (>0.05), this coefficient is not statistically different from zero, and the inclusion of PST as covariate did not improve the precision of the ARR coefficient, as the coefficient's Robust Standard Error is the same as in model 1 and 2.
+
+Finally, in model 4, covariates for Cohort and for Pacific Time (PST) were added.  Similarly to what was observed in model 1, 2 and 3, the estimated increase in ARR for "$5 Incentive" versus "No Incentive" is maintained at `r round(as.numeric(lr4$coefficients[2])*100,2)`%.  As in previous models, with a p-value of `r round(rLr4[2,4],3)` (>0.05), this coefficient is not statistically different from zero, and the inclusion of these covariates did not improve the precision of the ARR coefficient.
+
+In summary, the increase in ARR for "$5 Incentive" is estimated at `r round(as.numeric(lr1$coefficients[2])*100,2)`%. Even though this increase is relatively large when compared to the ARR for "No Incentive", the coefficient is not statistically different from zero (using Robust Standard Errors), as p-value for all models is greater than 0.05.  The treatment effect is equal in all models as covariate for Cohort and Pacific Time (PST) are added, indicating that the random assignment of subjects was successful in breaking any potential correlation of the covariates and the ARR.  However, none of the covariates helped to increase precision as the coefficient's Robust Standard Error for the main treatment effect did not change across the models.
+
+## No Incentive vs. $100 Lottery Incentive
+
+In this session, we evaluate the impact on Average Response Rate of entering a $100 lottery for answering the survey ("$100 Lottery") versus "No Incentive". The table below presents the results from the different linear regressions comparing these treatments, using "No Incentive" as the reference level (baseline) for treatment.  The linear regressions were developed using Robust Standard Errors. The four linear regression models are as follows:  
+
+- **Model 1:** Average Response Rate (ARR) on Treatment (Lottery).
+$$ ARR = b_0 + b_1 * Treatment_L $$
+- **Model 2:** Average Response Rate (ARR) on Treatment (Lottery) plus Cohort as covariate.
+$$ ARR = b_0 + b_1 * Treat_L + b_2 *Fall2020 + b_3 * Fall2021 + b_4 * Spring2021 + b_5 * Summer2021$$
+- **Model 3:** Average Response Rate (ARR) on Treatment (Lottery) plus PST (Pacific Time) as covariate.
+$$ ARR = b_0 + b_1 * Treatment_L + b_2 * InPST$$
+
+- **Model 4:** Average Response Rate (ARR) on Treatment (Lottery) plus Cohort and PST (Pacific Time) as covariate.
+$$ ARR = b_0 + b_1 * Treat_L + b_2 *Fall2020 + b_3 * Fall2021 + b_4 * Spring2021 + b_5 * Summer2021 + b_6 *InPST $$
+
+```{r message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+
+lr02 <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)'))]
+lr02_a <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lr02_b <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST)]
+lr02_c <- df02[ , lm(response ~ relevel(factor(treatment_group_name), ref='No Incentive (Control)') + in_PST 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+#Models using Robust Standard Error to get p-values
+rlr02 <- coeftest(lr02, cov=vcovHC)
+rlr02_a <- coeftest(lr02_a, cov=vcovHC)
+rlr02_b <- coeftest(lr02_b, cov=vcovHC)
+rlr02_c <- coeftest(lr02_c, cov=vcovHC)
+
+stargazer(
+  lr02, lr02_a, lr02_b, lr02_c,
+  title = "Table 2: Linear Regression - No Incentive vs. $100 Lottery Win",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lr02), robust_SE(lr02_a), robust_SE(lr02_b), robust_SE(lr02_c)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "No Incentive (Control)", "No Incentive (Control)", 
+                     "No Incentive (Control)", "No Incentive (Control)")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline"),
+   out='models2.htm')
+
+screenshot <- webshot("models2.htm", "models2.png", cliprect = "viewport")
+```
+
+```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
+knitr::include_graphics("models2.png")
+```
+
+From model 1, we conclude that "No Incentive" treatment group had an Average Response Rate (ARR) of `r round(as.numeric(lr02$coefficients[1])*100,2)`%, and "$100 Lottery" treatment group had a decrease in Average Response Rate, versus "No Treatment", of `r round(as.numeric(lr02$coefficients[2])*100,2)`%. Using Robust Standard Errors, with a p-value of `r round(rlr02[2,4],3)` (>0.05), model 1 suggests that the reduced ARR for "$100 Lottery" is not statistically significant. Thus we fail to reject the null hypothesis of "$100 Lottery" coefficient being equal to zero. Thus, the decrease in ARR for "$100 Lottery" versus "No Incentive" is not statistically different from zero. 
+
+As covariates for Cohort were added in model 2, the estimated decreases in ARR for "$100 Lottery" versus "No Incentive" is maintained at `r round(as.numeric(lr02_a$coefficients[2])*100,2)`%, which indicates that the random block assignment using the different cohorts was successful in breaking any potential correlation between cohort and ARR.  In addition, with a p-value of `r round(rlr02_a[2,4],3)` (>0.05), this coefficient is not statistically different from zero, and the addition of the cohort as covariate did not help in improving the precision for the coefficient, as the coefficient's Robust Standard Error is the same as in model 1.
+
+In model 3, a covariate of Pacific Time (PST) was added to model 1. Similarly to what was observed in model 1 and 2, the estimated decrease in ARR for "$100 Lottery" versus "No Incentive" is maintained at `r round(as.numeric(lr02_b$coefficients[2])*100,2)`%. Though we did not perform a random block assignment using PST, this covariate may not be correlated with ARR, as the estimate for ARR for "$100 Lottery" is maintained.  As in previous models, with a p-value of `r round(rlr02_b[2,4],3)` (>0.05), this coefficient is not statistically different from zero, and the inclusion of PST as covariate did not improve the precision of the ARR coefficient.
+
+Finally, in model 4, covariates for Cohort and for Pacific Time (PST) were added.  Similarly to what was observed in model 1, 2 and 3, the estimated decrease in ARR for "$100 Lottery" versus "No Incentive" is maintained at `r round(as.numeric(lr02_c$coefficients[2])*100,2)`%.  As in previous models, with a p-value of `r round(rlr02_c[2,4],3)` (>0.05), this coefficient is not statistically different from zero, and the inclusion of these covariates did not improve the precision of the ARR coefficient.
+
+In summary, the decrease in ARR for "$100 Lottery" is estimated at `r round(as.numeric(lr02$coefficients[2])*100,2)`%. The coefficient is not statistically different from zero (using Robust Standard Errors), as p-value for all models is greater than 0.05.  The treatment effect is equal in all models as covariate for Cohort and Pacific Time (PST) are added, indicating that the random assignment of subjects was successful in breaking any potential correlation of the covariates and the ARR.  However, none of the covariates helped to increase precision as the coefficient's Robust Standard Error for the main treatment effect did not change across the models.
+
+## $5 Incentive vs $100 Lottery Incentive
+
+In this session, we evaluate the impact on Average Response Rate of offering a $5 Incentive for answering the survey ("$5 Incentive") versus entering participants in a $100 Lottery for answering the survey ("$100 Lottery"). The table below presents the results from the different linear regressions comparing these treatments, using "$5 Incentive" as the reference level (baseline) for treatment.  The linear regressions were developed using Robust Standard Errors. The four linear regression models are as follows: 
+
+- **Model 1:** Average Response Rate (ARR) on Treatment (Lottery).
+$$ ARR = b_0 + b_1 * Treatment_L $$
+- **Model 2:** Average Response Rate (ARR) on Treatment (Lottery) plus Cohort as covariate.
+$$ ARR = b_0 + b_1 * Treat_L + b_2 *Fall2020 + b_3 * Fall2021 + b_4 * Spring2021 + b_5 * Summer2021$$
+- **Model 3:** Average Response Rate (ARR) on Treatment (Lottery) plus PST (Pacific Time) as covariate.
+$$ ARR = b_0 + b_1 * Treatment_L + b_2 * InPST$$
+
+- **Model 4:** Average Response Rate (ARR) on Treatment (Lottery) plus Cohort and PST (Pacific Time) as covariate.
+$$ ARR = b_0 + b_1 * Treat_L + b_2 *Fall2020 + b_3 * Fall2021 + b_4 * Spring2021 + b_5 * Summer2021 + b_6 *InPST $$
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+
+lr12 <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+lr12_a <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lr12_b <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + in_PST)]
+lr12_c <- df12[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + in_PST 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+#Models using Robust Standard Error to get p-values
+rlr12 <- coeftest(lr12, cov=vcovHC)
+rlr12_a <- coeftest(lr12_a, cov=vcovHC)
+rlr12_b <- coeftest(lr12_b, cov=vcovHC)
+rlr12_c <- coeftest(lr12_c, cov=vcovHC)
+
+stargazer(
+  lr12, lr12_a, lr12_b, lr12_c,
+  title = "Table 3: Linear Regression - $5 Per Survey Incentive vs. $100 Lottery Win",
+  column.labels = c('Simple', 'Cohort Included', 'PST included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lr12), robust_SE(lr12_a), robust_SE(lr12_b), robust_SE(lr12_c)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar Incentive", "5 dollar Incentive", 
+                     "5 dollar Incentive", "5 dollar Incentive")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline"),
+  out='models3.htm')
+
+screenshot <- webshot("models3.htm", "models3.png", cliprect = "viewport")
+```
+
+```{r, echo=FALSE, out.height="70%", out.width="100%", fig.align="center"}
+knitr::include_graphics("models3.png")
+```
+
+From model 1, we conclude that "$5 Incentive" treatment group had an Average Response Rate (ARR) of `r round(as.numeric(lr12$coefficients[1])*100,2)`%, and "$100 Lottery" treatment group had a decrease in Average Response Rate, versus "$5 Incentive", of `r round(as.numeric(lr12$coefficients[2])*100,2)`%. Using Robust Standard Errors, with a p-value of `r round(rlr12[2,4],3)` (<0.05), model 1 suggests that the reduced ARR for "$100 Lottery" is statistically significant. Thus we reject the null hypothesis of the "$100 Lottery" coefficient being equal to zero. Thus, the decrease in ARR for "$100 Lottery" versus "$5 Incentive" is statistically different from zero. As we performed three statisticals tests, we also evaluated the results using an adjusted $\alpha$ of `r round(0.05/3,3)` ($\alpha$ = 0.05/3, Bonferroni Adjustment).  Using the adjusted $\alpha$, with a p-value of `r round(rlr12[2,4],3)` (<`r round(0.05/3,3)`), we reject the null hypothesis of "$100 Lottery" coefficient being equal to zero. Thus, the decrease in ARR for "$100 Lottery" versus "$5 Incentive" is statistically different from zero.
+
+As covariates for Cohort were added in model 2, the estimated decreases in ARR for "$100 Lottery" versus "$5 Incentive" is maintained at `r round(as.numeric(lr12_a$coefficients[2])*100,2)`%, which indicates that the random block assignment using the different cohorts was successful in breaking any potential correlation between cohort and ARR.  In addition, with a p-value of `r round(rlr12_a[2,4],3)` (>0.05), this coefficient is statistically different from zero, and the addition of the cohort as covariate did not help in improving the precision for the coefficient, as the coefficient's Robust Standard Error is the same as in model 1. Using the adjusted $\alpha$ (`r round(0.05/3,3)`, Bonferroni Adjustment), with a p-value of `r round(rlr12_a[2,4],3)` (<`r round(0.05/3,3)`), we reject the null hypothesis of "$100 Lottery" coefficient being equal to zero. Thus, the decrease in ARR for "$100 Lottery" versus "$5 Incentive" is statistically different from zero (using adjusted $\alpha$).
+
+In model 3, a covariate of Pacific Time (PST) was added to model 1. Similarly to what was observed in model 1 and 2, the estimated decrease in ARR for "$100 Lottery" versus "No Incentive" is maintained at `r round(as.numeric(lr12_b$coefficients[2])*100,2)`%. Though we did not perform a random block assignment using PST, this covariate may not be correlated with ARR, as the estimate for ARR for "$100 Lottery" is maintained.  As in previous models, with a p-value of `r round(rlr12_b[2,4],3)` (>0.05), this coefficient is statistically different from zero, and the inclusion of PST as covariate did not improve the precision of the ARR coefficient. This result holds when using adjusted $\alpha$ (`r round(0.05/3,3)`, Bonferroni Adjustment).
+
+Finally, in model 4, covariates for Cohort and for Pacific Time (PST) were added.  Similarly to what was observed in model 1, 2 and 3, the estimated decrease in ARR for "$100 Lottery" versus "No Incentive" is maintained at `r round(as.numeric(lr12_c$coefficients[2])*100,2)`%.  As in previous models, with a p-value of `r round(rlr12_c[2,4],3)` (>0.05), this coefficient is statistically different from zero, and the inclusion of these covariates did not improve the precision of the ARR coefficient. This result also holds when using adjusted $\alpha$ (`r round(0.05/3,3)`, Bonferroni Adjustment).
+
+In summary, the decrease in ARR for "$100 Lottery" is estimated at `r round(as.numeric(lr12$coefficients[2])*100,2)`%. The coefficient is statistically different from zero (using Robust Standard Errors), as p-value for all models is greater than 0.05, and this result holds when using adjusted $\alpha$ (`r round(0.05/3,3)`, Bonferroni Adjustment). The treatment effect is equal in all models as covariate for Cohort and Pacific Time (PST) are added, indicating that the random assignment of subjects was successful in breaking any potential correlation of the covariates and the ARR.  However, none of the covariates helped to increase precision as the coefficient's Robust Standard Error for the main treatment effect did not change across the models.
+
+
+### Big Regression Tables
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+lrt1 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+
+lrt2 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + relevel(factor(cohort_name), ref='Summer 2020'))]
+lrt3 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + in_PST)]
+
+lrt4 <- df1[ , lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') 
+                  + in_PST + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+
+stargazer(
+  lrt1, lrt2, lrt3, lrt4,
+  title = "Table 4: Linear Regression - Including All Treatments",
+  column.labels = c('Simple', 'Cohort Included', 'PST Included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lrt1), robust_SE(lrt2), robust_SE(lrt3), robust_SE(lrt4)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), 
+                   c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar Incentive", "5 dollar Incentive", 
+                     "5 dollar Incentive", "5 dollar Incentive")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "No Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline"),
+  out='models4.htm')
+
+screenshot <- webshot("models4.htm", "models4.png", cliprect = "viewport")
+
+```
+
+
+```{r warning=FALSE}
+stargazer(
+  lrt1, lrt2, lrt3, lrt4,
+  title = "Table 4: Linear Regression - Including All Treatments",
+  column.labels = c('Simple', 'Cohort Included', 'PST Included', 'Cohort and PST Included'),
+  type = 'text',
+  se = list(robust_SE(lrt1), robust_SE(lrt2), robust_SE(lrt3), robust_SE(lrt4)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "Yes", "No", "Yes"), 
+                   c("PST fixed effects", "No", "No", "Yes", "Yes"),
+                   c("Baseline is:", "5 dollar Incentive", "5 dollar Incentive", 
+                     "5 dollar Incentive", "5 dollar Incentive")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "No Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", 
+                       "In PST", "Baseline")
+  )
+```
+
+```{r warning=FALSE}
+# Heterogeneous Treatment Effects: in_PST 
+
+
+lr_notPST <- df1[ in_PST %in% c(0), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+
+lr_PST <- df1[ in_PST %in% c(1), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive'))]
+
+lr_notPST_cohort <- df1[ in_PST %in% c(0), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+lr_PST_cohort <- df1[ in_PST %in% c(1), lm(response ~ relevel(factor(treatment_group_name), ref='$5 Incentive') + relevel(factor(cohort_name), ref='Summer 2020'))]
+
+stargazer(
+  lr_notPST, lr_PST, lr_notPST_cohort, lr_PST_cohort,
+  title = "Table 5: Linear Regression - Heterogeneous Treatment Effects for being in PST",
+  column.labels = c('Not PST', 'PST', 'Not PST, Cohorts', 'PST, Cohorts'),
+  type = 'text',
+  se = list(robust_SE(lr_notPST), robust_SE(lr_PST), robust_SE(lr_notPST_cohort), robust_SE(lr_PST_cohort)),
+  notes = 'Note: Uses Robust Standard Error.',
+  dep.var.labels = c("Response Rate"),
+  add.lines = list(c("Cohort fixed effects", "No", "No", "Yes", "Yes"), 
+                   c("Baseline is:", "5 dollar Incentive", "5 dollar Incentive", "5 dollar Incentive", "5 dollar Incentive")),
+  covariate.labels = c("100 Dollar Lottery Incentive", "No Incentive", "Fall 2020", 
+                       "Fall 2021", "Spring 2021", 
+                       "Summer 2021", "Baseline"),
+  out='models5.htm'
+)
+
+```
