@@ -1,9 +1,14 @@
 # Increasing Online Survey Completion through Incentives, using a Randomized Experiment 
 
 # Assignment Prompt
-We investigate the effect of monetary incentives on survey completion rate through a randomized experiment conducted on a population of University of California, Berkeley graduate students. We assess 3 treatment conditions: no incentive (control), a guaranteed $5 reward, and a lottery entry for a $100 reward.
+We investigate the effect of monetary incentives on survey completion rate through a randomized experiment conducted on a population of University of California, Berkeley graduate students. We assess 3 treatment conditions: 
+- No incentive (control)
+- Guaranteed $5 reward
+- Lottery entry for a $100 reward.
 
 Results are analyzed in R, and the regression tables produced provide causal inference for how specific treatments impact the survey completion rate.
+
+
 
 # Project Organization
 
