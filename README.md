@@ -1,8 +1,9 @@
-# W241 Final Project
+# Increasing Online Survey Completion through Incentives, using a Randomized Experiment 
 
 # Assignment Prompt
+We investigate the effect of monetary incentives on survey completion rate through a randomized experiment conducted on a population of University of California, Berkeley graduate students. We assess 3 treatment conditions: no incentive (control), a guaranteed $5 reward, and a lottery entry for a $100 reward.
 
-The assignment prompt is in `./assignment.Rmd` and the linked `./assignment.html` file. 
+Results are analyzed in R, and the regression tables produced provide causal inference for how specific treatments impact the survey completion rate.
 
 # Project Organization
 
