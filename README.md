@@ -1,5 +1,7 @@
 # Increasing Online Survey Completion through Incentives, using a Randomized Experiment 
 
+Contributors: Alexandra Drossos, Anand Patel, Carlos Moreno, Madeline Whitlow, Spencer Weston
+
 # Assignment Prompt
 We investigate the effect of monetary incentives on survey completion rate through a randomized experiment conducted on a population of University of California, Berkeley graduate students. We assess 3 treatment conditions: 
 - No incentive (control)
