@@ -1,8 +1,9 @@
 # Increasing Online Survey Completion through Incentives, using a Randomized Experiment 
 
-Contributors: Alexandra Drossos, Anand Patel, Carlos Moreno, Madeline Whitlow, Spencer Weston
+## Contributors: 
+Alexandra Drossos, Anand Patel, Carlos Moreno, Madeline Whitlow, Spencer Weston
 
-# Assignment Prompt
+## Assignment Prompt
 We investigate the effect of monetary incentives on survey completion rate through a randomized experiment conducted on a population of University of California, Berkeley graduate students. We assess 3 treatment conditions: 
 - No incentive (control)
 - Guaranteed $5 reward
@@ -10,9 +11,11 @@ We investigate the effect of monetary incentives on survey completion rate throu
 
 Results are analyzed in R, and the regression tables produced provide causal inference for how specific treatments impact the survey completion rate.
 
+## Deliverables: 
+- [Final Report](https://github.com/Anand-Patel-95/Survey-Incentives-Causal-Inference-public/blob/main/reports/W241_Final_Paper.pdf)
+- [Final Slide Deck](https://github.com/Anand-Patel-95/Survey-Incentives-Causal-Inference-public/blob/main/reports/W241_Final_Slides.pdf)
 
-
-# Project Organization
+## Project Organization
 
     ├── LICENSE
     ├── README.md          <- The top-level README describing the project aims
