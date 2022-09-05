@@ -146,8 +146,8 @@ assignment[!(join_email %in% responses[, join_email]),
 ###
 
 ### Permutation 5 
-# In the assignment table, we have lawiskoh@berkeley.edu which matches
-# lkoh003@berkeley.edu in the response table. We need to do a first initial last
+# In the assignment table, we have @berkeley.edu which matches
+# @berkeley.edu in the response table. We need to do a first initial last
 # name permutation on the assignment table and a digit strip on the response table
 # to create the match. 
 
