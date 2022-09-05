@@ -19,15 +19,15 @@ assignment <- fread(assignment)
 responses[, response:=1] # Set all responses to response == 1
 
 # Drop experimenter emails from response
-experimenter_emails <- c('alexandradrossos@berkeley.edu', 
-                         'anand.patel@berkeley.edu',
-                         'sweston@berkeley.edu',
-                         'carlos.moreno@berkeley.edu',
-                         'madeline_94@berkeley.edu')
+experimenter_emails <- c('@berkeley.edu', 
+                         '@berkeley.edu',
+                         '@berkeley.edu',
+                         '@berkeley.edu',
+                         '@berkeley.edu')
 responses <- responses[!(recorded_email %in% experimenter_emails), ]
 
 # Drop Invalid response that came in past the due date
-invalid_emails <- c('jcweaver@berkeley.edu')
+invalid_emails <- c('@berkeley.edu')
 responses <- responses[!(recorded_email %in% invalid_emails), ]
 
 # Assign `join_email` column
